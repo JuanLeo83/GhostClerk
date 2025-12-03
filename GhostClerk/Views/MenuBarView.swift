@@ -33,7 +33,7 @@ struct MenuBarView: View {
             // Footer
             footerSection
         }
-        .frame(width: 280)
+        .frame(width: 320)
     }
     
     // MARK: - Status Section
@@ -84,19 +84,18 @@ struct MenuBarView: View {
             .buttonStyle(MenuButtonStyle())
             
             Button {
-                // TODO: Phase 1 - Manual scan
+                appState.manualScan()
             } label: {
                 Label("Scan Now", systemImage: "arrow.clockwise")
             }
             .buttonStyle(MenuButtonStyle())
-            .disabled(!appState.isMonitoring)
         }
     }
     
     // MARK: - Recent Activity Section
     
     private var recentActivitySection: some View {
-        VStack(alignment: .leading, spacing: 4) {
+        VStack(alignment: .leading, spacing: 2) {
             Text("Recent Activity")
                 .font(.caption)
                 .foregroundColor(.secondary)
@@ -110,25 +109,11 @@ struct MenuBarView: View {
                     .padding(.horizontal, 12)
                     .padding(.vertical, 4)
             } else {
-                ForEach(appState.recentLogs.suffix(3).reversed()) { log in
-                    HStack {
-                        Image(systemName: iconForAction(log.action))
-                            .foregroundColor(colorForStatus(log.status))
-                            .frame(width: 16)
-                        
-                        Text(log.fileName)
-                            .lineLimit(1)
-                            .truncationMode(.middle)
-                        
-                        Spacer()
-                        
-                        Text(log.timestamp.formatted(.relative(presentation: .named)))
-                            .font(.caption2)
-                            .foregroundColor(.secondary)
-                    }
-                    .font(.caption)
-                    .padding(.horizontal, 12)
-                    .padding(.vertical, 2)
+                ForEach(appState.recentLogs.suffix(5).reversed()) { log in
+                    Text("\(iconEmojiForAction(log.action)) \(truncateFileName(log.fileName, maxLength: 22)) · \(shortTimeAgo(log.timestamp))")
+                        .font(.system(size: 12))
+                        .padding(.horizontal, 12)
+                        .padding(.vertical, 2)
                 }
             }
         }
@@ -179,6 +164,46 @@ struct MenuBarView: View {
         case .failed: return .red
         case .pending: return .orange
         case .retrying: return .yellow
+        }
+    }
+    
+    private func iconEmojiForAction(_ action: ActionType) -> String {
+        switch action {
+        case .scanned: return "🔍"
+        case .moved: return "📁"
+        case .renamed: return "✏️"
+        case .deleted: return "🗑️"
+        case .whitelisted: return "✅"
+        case .reviewTray: return "📥"
+        case .skipped: return "⏭️"
+        }
+    }
+    
+    private func truncateFileName(_ name: String, maxLength: Int) -> String {
+        guard name.count > maxLength else { return name }
+        let ext = (name as NSString).pathExtension
+        let nameWithoutExt = (name as NSString).deletingPathExtension
+        let availableLength = maxLength - ext.count - 4 // 4 for "..." and "."
+        if availableLength > 0 && nameWithoutExt.count > availableLength {
+            let truncated = String(nameWithoutExt.prefix(availableLength))
+            return ext.isEmpty ? "\(truncated)..." : "\(truncated)...\(ext)"
+        }
+        return String(name.prefix(maxLength - 3)) + "..."
+    }
+    
+    private func shortTimeAgo(_ date: Date) -> String {
+        let interval = Date().timeIntervalSince(date)
+        if interval < 60 {
+            return "now"
+        } else if interval < 3600 {
+            let mins = Int(interval / 60)
+            return "\(mins)m"
+        } else if interval < 86400 {
+            let hours = Int(interval / 3600)
+            return "\(hours)h"
+        } else {
+            let days = Int(interval / 86400)
+            return "\(days)d"
         }
     }
 }

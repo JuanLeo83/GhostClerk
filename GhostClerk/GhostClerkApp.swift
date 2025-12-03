@@ -57,6 +57,7 @@ final class AppState: ObservableObject {
     
     init() {
         setupFolderMonitor()
+        setupFileProcessor()
         Task {
             await loadData()
         }
@@ -68,6 +69,14 @@ final class AppState: ObservableObject {
         folderMonitor = FolderMonitor(url: FolderMonitor.defaultDownloadsURL)
         folderMonitor?.onFolderDidChange = { [weak self] in
             self?.handleFolderChange()
+        }
+    }
+    
+    private func setupFileProcessor() {
+        FileProcessor.shared.onActivityLogged = { [weak self] log in
+            Task { @MainActor in
+                self?.handleActivityLog(log)
+            }
         }
     }
     
@@ -111,7 +120,28 @@ final class AppState: ObservableObject {
         lastChangeDetected = Date()
         logger.info("🔔 Folder change detected at \(self.lastChangeDetected?.description ?? "unknown")")
         
-        // TODO: Phase 1 - Trigger file processing pipeline here
+        // Trigger file processing pipeline
+        FileProcessor.shared.scanDownloadsFolder()
+    }
+    
+    private func handleActivityLog(_ log: ActivityLog) {
+        // Add to recent logs (keep last 50)
+        recentLogs.append(log)
+        if recentLogs.count > 50 {
+            recentLogs.removeFirst(recentLogs.count - 50)
+        }
+        
+        // Persist to storage
+        Task {
+            try? await StorageService.shared.appendLog(log)
+        }
+        
+        logger.info("Activity: \(log.action.rawValue) - \(log.fileName)")
+    }
+    
+    /// Manually trigger a scan of the Downloads folder
+    func manualScan() {
+        FileProcessor.shared.scanDownloadsFolder()
     }
     
     // MARK: - Rules Management

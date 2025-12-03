@@ -106,8 +106,16 @@ final class FolderMonitor {
     
     // MARK: - Static Helpers
     
-    /// Returns the default Downloads folder URL
+    /// Returns the default Downloads folder URL (real user folder, not sandbox)
     static var defaultDownloadsURL: URL {
-        FileManager.default.urls(for: .downloadsDirectory, in: .userDomainMask).first!
+        // Use NSHomeDirectoryForUser to get the real home, not the sandbox container
+        let homeDir = FileManager.default.homeDirectoryForCurrentUser
+        // Check if we're in a sandbox container
+        if homeDir.path.contains("/Library/Containers/") {
+            // Extract the real username and build the path
+            let realHome = URL(fileURLWithPath: NSHomeDirectory().components(separatedBy: "/Library/Containers/").first ?? NSHomeDirectory())
+            return realHome.appendingPathComponent("Downloads")
+        }
+        return homeDir.appendingPathComponent("Downloads")
     }
 }
