@@ -24,6 +24,10 @@ final class FileProcessor: @unchecked Sendable {
     /// Retry queue for locked/incomplete files
     private let retryQueue = RetryQueue()
     
+    /// Track processed files to avoid duplicates (file path -> last modification date)
+    private var processedFiles: [String: Date] = [:]
+    private let processedFilesLock = NSLock()
+    
     /// Extensions to ignore (temporary download files)
     private let temporaryExtensions: Set<String> = [
         "crdownload",   // Chrome
@@ -150,12 +154,24 @@ final class FileProcessor: @unchecked Sendable {
             return false
         }
         
-        // Check file age (debounce recently created files)
+        // Check if already processed (same file, same modification date)
         if let modDate = try? url.resourceValues(forKeys: [.contentModificationDateKey]).contentModificationDate {
             let age = Date().timeIntervalSince(modDate)
+            
+            // Check file age (debounce recently created files)
             if age < minimumFileAge {
                 logger.debug("File too new, queueing for retry: \(url.lastPathComponent) (age: \(age)s)")
                 Task { await retryQueue.enqueue(url) }
+                return false
+            }
+            
+            // Check if already processed with same modification date
+            processedFilesLock.lock()
+            let lastProcessed = processedFiles[url.path]
+            processedFilesLock.unlock()
+            
+            if let lastProcessed = lastProcessed, lastProcessed == modDate {
+                logger.debug("File already processed, skipping: \(url.lastPathComponent)")
                 return false
             }
         }
@@ -226,6 +242,13 @@ final class FileProcessor: @unchecked Sendable {
             return
         }
         
+        // Mark as processed with current modification date
+        if let modDate = try? url.resourceValues(forKeys: [.contentModificationDateKey]).contentModificationDate {
+            processedFilesLock.lock()
+            processedFiles[url.path] = modDate
+            processedFilesLock.unlock()
+        }
+        
         // Remove from retry queue if present
         Task { await retryQueue.dequeue(url) }
         
@@ -237,9 +260,19 @@ final class FileProcessor: @unchecked Sendable {
             logger.debug("File hash: \(hash.prefix(16))...")
         }
         
-        // TODO: Phase 2 - Extract text content (PDFKit / Vision OCR)
-        // TODO: Phase 3 - Send to MLX for rule matching
-        // TODO: Phase 4 - Move file to destination or Review Tray
+        // Extract text content (PDFKit / Vision OCR)
+        Task {
+            if TextExtractor.shared.isSupported(url) {
+                if let extractedText = await TextExtractor.shared.extractText(from: url) {
+                    logger.info("Extracted \(extractedText.count) chars from: \(url.lastPathComponent)")
+                    // TODO: Phase 3 - Send extractedText to MLX for rule matching
+                } else {
+                    logger.debug("No text extracted from: \(url.lastPathComponent)")
+                }
+            }
+            
+            // TODO: Phase 4 - Move file to destination or Review Tray
+        }
         
         logger.info("Completed processing: \(url.lastPathComponent)")
     }

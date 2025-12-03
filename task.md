@@ -39,9 +39,10 @@ Integration of MLX and Business Logic.
 
 Ability to read content.
 
-- [ ] **Text Extractor Service**: Implement `Services/Vision/TextExtractor.swift`.
-    - **Step 1**: Attempt `PDFKit` (`PDFDocument(url).string`).
-    - **Step 2**: If it fails, use `VNRecognizeTextRequest` (Vision Framework) for OCR of images or scanned PDFs.
+- [x] **Text Extractor Service**: Implement `Services/Vision/TextExtractor.swift`.
+    - **Step 1**: PDFKit (`PDFDocument(url).string`) for native PDFs.
+    - **Step 2**: Vision Framework (`VNRecognizeTextRequest`) for OCR of images/scanned PDFs.
+    - Supports: PDF, PNG, JPG, JPEG, TIFF, HEIC, WEBP, TXT, MD, RTF.
 
 ## Story 3: Duplicate Management (Integrity)
 

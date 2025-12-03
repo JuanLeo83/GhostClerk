@@ -34,6 +34,12 @@ final class FolderMonitor {
     /// Whether the monitor is currently active
     private(set) var isMonitoring = false
     
+    /// Debounce work item to coalesce rapid events
+    private var debounceWorkItem: DispatchWorkItem?
+    
+    /// Debounce interval in seconds
+    private let debounceInterval: TimeInterval = 0.5
+    
     // MARK: - Initialization
     
     /// Creates a new FolderMonitor for the specified URL
@@ -70,15 +76,26 @@ final class FolderMonitor {
             queue: monitorQueue
         )
         
-        // Handle file system events
+        // Handle file system events with debounce
         dispatchSource?.setEventHandler { [weak self] in
             guard let self = self else { return }
-            self.logger.info("🔔 DispatchSource event triggered for \(self.folderURL.path)")
+            self.logger.debug("🔔 DispatchSource event triggered for \(self.folderURL.path)")
             
-            // Call the callback on main thread for UI updates
-            DispatchQueue.main.async {
-                self.onFolderDidChange?()
+            // Cancel any pending debounce
+            self.debounceWorkItem?.cancel()
+            
+            // Create new debounced work item
+            let workItem = DispatchWorkItem { [weak self] in
+                guard let self = self else { return }
+                self.logger.info("🔔 Folder change detected (debounced)")
+                DispatchQueue.main.async {
+                    self.onFolderDidChange?()
+                }
             }
+            self.debounceWorkItem = workItem
+            
+            // Schedule after debounce interval
+            DispatchQueue.main.asyncAfter(deadline: .now() + self.debounceInterval, execute: workItem)
         }
         
         // Handle cancellation
