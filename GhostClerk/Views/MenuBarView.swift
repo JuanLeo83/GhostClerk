@@ -1,0 +1,202 @@
+//
+//  MenuBarView.swift
+//  GhostClerk
+//
+//  Created by Ghost Clerk on 2025.
+//
+
+import SwiftUI
+
+/// The main menu that appears when clicking the menu bar icon
+struct MenuBarView: View {
+    
+    @EnvironmentObject var appState: AppState
+    @Environment(\.openSettings) private var openSettings
+    
+    var body: some View {
+        VStack(alignment: .leading, spacing: 0) {
+            // Status Section
+            statusSection
+            
+            Divider()
+            
+            // Quick Actions
+            actionSection
+            
+            Divider()
+            
+            // Recent Activity
+            recentActivitySection
+            
+            Divider()
+            
+            // Footer
+            footerSection
+        }
+        .frame(width: 280)
+    }
+    
+    // MARK: - Status Section
+    
+    private var statusSection: some View {
+        VStack(alignment: .leading, spacing: 4) {
+            HStack {
+                Circle()
+                    .fill(appState.isMonitoring ? Color.green : Color.gray)
+                    .frame(width: 8, height: 8)
+                
+                Text(appState.isMonitoring ? "Monitoring Active" : "Monitoring Paused")
+                    .font(.headline)
+                
+                Spacer()
+            }
+            
+            Text("Watching: ~/Downloads")
+                .font(.caption)
+                .foregroundColor(.secondary)
+            
+            if let lastChange = appState.lastChangeDetected {
+                Text("Last change: \(lastChange.formatted(.relative(presentation: .named)))")
+                    .font(.caption2)
+                    .foregroundColor(.secondary)
+            } else {
+                Text("Last change: None yet")
+                    .font(.caption2)
+                    .foregroundColor(.secondary)
+            }
+        }
+        .padding(.horizontal, 12)
+        .padding(.vertical, 8)
+    }
+    
+    // MARK: - Action Section
+    
+    private var actionSection: some View {
+        VStack(spacing: 0) {
+            Button {
+                appState.toggleMonitoring()
+            } label: {
+                Label(
+                    appState.isMonitoring ? "Pause Monitoring" : "Start Monitoring",
+                    systemImage: appState.isMonitoring ? "pause.fill" : "play.fill"
+                )
+            }
+            .buttonStyle(MenuButtonStyle())
+            
+            Button {
+                // TODO: Phase 1 - Manual scan
+            } label: {
+                Label("Scan Now", systemImage: "arrow.clockwise")
+            }
+            .buttonStyle(MenuButtonStyle())
+            .disabled(!appState.isMonitoring)
+        }
+    }
+    
+    // MARK: - Recent Activity Section
+    
+    private var recentActivitySection: some View {
+        VStack(alignment: .leading, spacing: 4) {
+            Text("Recent Activity")
+                .font(.caption)
+                .foregroundColor(.secondary)
+                .padding(.horizontal, 12)
+                .padding(.top, 8)
+            
+            if appState.recentLogs.isEmpty {
+                Text("No recent activity")
+                    .font(.caption)
+                    .foregroundColor(.secondary)
+                    .padding(.horizontal, 12)
+                    .padding(.vertical, 4)
+            } else {
+                ForEach(appState.recentLogs.suffix(3).reversed()) { log in
+                    HStack {
+                        Image(systemName: iconForAction(log.action))
+                            .foregroundColor(colorForStatus(log.status))
+                            .frame(width: 16)
+                        
+                        Text(log.fileName)
+                            .lineLimit(1)
+                            .truncationMode(.middle)
+                        
+                        Spacer()
+                        
+                        Text(log.timestamp.formatted(.relative(presentation: .named)))
+                            .font(.caption2)
+                            .foregroundColor(.secondary)
+                    }
+                    .font(.caption)
+                    .padding(.horizontal, 12)
+                    .padding(.vertical, 2)
+                }
+            }
+        }
+        .padding(.bottom, 8)
+    }
+    
+    // MARK: - Footer Section
+    
+    private var footerSection: some View {
+        VStack(spacing: 0) {
+            Button {
+                openSettings()
+            } label: {
+                Label("Settings...", systemImage: "gear")
+            }
+            .buttonStyle(MenuButtonStyle())
+            .keyboardShortcut(",", modifiers: .command)
+            
+            Divider()
+            
+            Button {
+                NSApplication.shared.terminate(nil)
+            } label: {
+                Label("Quit Ghost Clerk", systemImage: "power")
+            }
+            .buttonStyle(MenuButtonStyle())
+            .keyboardShortcut("q", modifiers: .command)
+        }
+    }
+    
+    // MARK: - Helpers
+    
+    private func iconForAction(_ action: ActionType) -> String {
+        switch action {
+        case .scanned: return "doc.viewfinder"
+        case .moved: return "folder.fill"
+        case .renamed: return "pencil"
+        case .deleted: return "trash"
+        case .whitelisted: return "checkmark.shield"
+        case .reviewTray: return "tray"
+        case .skipped: return "forward.fill"
+        }
+    }
+    
+    private func colorForStatus(_ status: ActionStatus) -> Color {
+        switch status {
+        case .success: return .green
+        case .failed: return .red
+        case .pending: return .orange
+        case .retrying: return .yellow
+        }
+    }
+}
+
+// MARK: - Menu Button Style
+
+struct MenuButtonStyle: ButtonStyle {
+    func makeBody(configuration: Configuration) -> some View {
+        configuration.label
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .padding(.horizontal, 12)
+            .padding(.vertical, 6)
+            .background(configuration.isPressed ? Color.accentColor.opacity(0.2) : Color.clear)
+            .contentShape(Rectangle())
+    }
+}
+
+#Preview {
+    MenuBarView()
+        .environmentObject(AppState())
+}

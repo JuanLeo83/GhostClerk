@@ -1,0 +1,72 @@
+# Ghost Clerk v1.1 - Task List (Swift Native)
+
+## 0. Setup & Infrastructure (Foundations)
+
+Critical configuration tasks for the Xcode project, system permissions, and dependencies. Without this, nothing starts.
+
+- [x] **Init Project**: Create macOS App project in Xcode (SwiftUI). Configure minimum target macOS 14.0.
+- [x] **Agent Mode**: Modify `Info.plist` setting `Application is agent (UIElement)` to `YES` to hide the Dock icon.
+- [ ] **Dependencies**: Add Swift Package Manager package: `mlx-swift` (https://github.com/ml-explore/mlx-swift).
+- [x] **Permissions (Sandbox)**: Configure *Entitlements*: `com.apple.security.files.user-selected.read-write` and `com.apple.security.files.downloads.read-write`.
+- [x] **File Structure**: Create groups in Xcode: `Core`, `Services`, `Models`, `Views`, `Utils`.
+- [x] **Data Models**: Define `Codable` structs in `Models/`:
+    - `Rule.swift` (`id`, `naturalPrompt`, `targetPath`).
+    - `ActivityLog.swift` (`timestamp`, `fileName`, `action`, `status`).
+- [x] **Persistence Layer**: Implement `Services/StorageService.swift` to save/load JSONs (`rules.json`, `activity.log`) in `ApplicationSupport`.
+
+## Story 2: Core Loop & Immunity (Blocking)
+
+The monitoring and filtering engine. Prioritized over Story 1 because we need to detect files before applying rules.
+
+- [x] **File Watcher**: Implement `Core/FolderMonitor.swift` using `DispatchSource` to listen for `write` events in `~/Downloads`.
+- [ ] **Processing Queue**: Implement `Core/ProcessingQueue.swift` using `OperationQueue` with `maxConcurrentOperationCount = 1` (Serial Processing).
+- [ ] **Immunity System (Whitelist)**: Implement filter **before** queuing. Ignore extensions `.crdownload`, `.part`, `.download`, `.dmg`, `.pkg`, `.app`.
+- [ ] **Lock Check Strategy**: Implement retry policy (`RetryPolicy.swift`) that verifies if the file has a write lock before processing it.
+
+## Story 1: Intelligence & Rules (The Brain)
+
+Integration of MLX and Business Logic.
+
+- [ ] **Prompt Builder**: Create `Services/AI/PromptBuilder.swift`. Must receive the array of Rules and format the sequential string ("1. Rule A, 2. Rule B...").
+- [ ] **MLX Service**: Implement `Services/AI/MLXWorker.swift`.
+    - Logic to download `Phi-3.5-mini-instruct` model (GGUF) if it doesn't exist.
+    - Load model into memory.
+    - Function `infer(text: String, rules: [Rule]) -> RuleID?`.
+- [ ] **Rules UI**: Implement `Views/Settings/RulesListView.swift` with `onMove` (Drag & Drop) support to define visual priority.
+
+## Story 2 (Cont.): Extraction & OCR (The Eyes)
+
+Ability to read content.
+
+- [ ] **Text Extractor Service**: Implement `Services/Vision/TextExtractor.swift`.
+    - **Step 1**: Attempt `PDFKit` (`PDFDocument(url).string`).
+    - **Step 2**: If it fails, use `VNRecognizeTextRequest` (Vision Framework) for OCR of images or scanned PDFs.
+
+## Story 3: Duplicate Management (Integrity)
+
+Prevent data overwriting.
+
+- [ ] **Hash Utility**: Create `Utils/FileHash.swift` using `CryptoKit` to calculate SHA-256 (streaming).
+- [ ] **Duplicate Logic**: Implement in `Services/FileSystem/ClerkFileManager.swift`:
+    - Check existence at destination.
+    - Compare Hash.
+    - Decision: `delete` (if hash equal) or `rename` (if hash different).
+- [ ] **Rename Helper**: Implement function that generates `file(1).pdf`, `file(2).pdf` recursively.
+
+## Story 4: Review Tray & UI (Feedback)
+
+Uncertainty management and User Interface.
+
+- [ ] **Review Tray Logic**: In the main pipeline, if MLX returns `nil`, move file to `~/Downloads/_GhostReview` folder.
+- [ ] **MenuBar UI**: Implement `GhostClerkApp.swift` (MenuBarExtra):
+    - Show status ("Scanning..." / "Inactive").
+    - Button to open Settings.
+    - Button to open Review Tray.
+- [ ] **Visual Alert**: Change the Tray icon (e.g., add a red dot) if there are files in the Review Tray.
+
+## Story 5: Safety Net
+
+Disaster prevention.
+
+- [ ] **Trash Logic**: Implement `Services/FileSystem/TrashManager.swift`.
+    - Ensure any "delete" action requested by a rule moves the file to `~/.ghost_clerk_trash` instead of deleting it.
