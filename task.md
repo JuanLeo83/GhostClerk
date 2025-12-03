@@ -19,9 +19,10 @@ Critical configuration tasks for the Xcode project, system permissions, and depe
 The monitoring and filtering engine. Prioritized over Story 1 because we need to detect files before applying rules.
 
 - [x] **File Watcher**: Implement `Core/FolderMonitor.swift` using `DispatchSource` to listen for `write` events in `~/Downloads`.
-- [ ] **Processing Queue**: Implement `Core/ProcessingQueue.swift` using `OperationQueue` with `maxConcurrentOperationCount = 1` (Serial Processing).
-- [ ] **Immunity System (Whitelist)**: Implement filter **before** queuing. Ignore extensions `.crdownload`, `.part`, `.download`, `.dmg`, `.pkg`, `.app`.
-- [ ] **Lock Check Strategy**: Implement retry policy (`RetryPolicy.swift`) that verifies if the file has a write lock before processing it.
+- [x] **Processing Queue**: Simplified - FileProcessor handles serial processing directly.
+- [x] **Immunity System (Whitelist)**: Implemented in FileProcessor. Ignores `.crdownload`, `.part`, `.download`, `.tmp`, `.partial`, `.dmg`, `.pkg`, `.app`, `.iso`.
+- [x] **Lock Check Strategy**: Implemented in FileProcessor with file age debounce and lock detection.
+- [x] **File Hasher**: Implemented `Utils/FileHasher.swift` using CryptoKit SHA256 streaming.
 
 ## Story 1: Intelligence & Rules (The Brain)
 

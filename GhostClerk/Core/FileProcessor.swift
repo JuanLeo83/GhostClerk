@@ -21,6 +21,9 @@ final class FileProcessor: @unchecked Sendable {
     private let logger = Logger(subsystem: "com.ghostclerk.app", category: "FileProcessor")
     private let fileManager = FileManager.default
     
+    /// Retry queue for locked/incomplete files
+    private let retryQueue = RetryQueue()
+    
     /// Extensions to ignore (temporary download files)
     private let temporaryExtensions: Set<String> = [
         "crdownload",   // Chrome
@@ -56,9 +59,32 @@ final class FileProcessor: @unchecked Sendable {
     
     // MARK: - Initialization
     
-    private init() {}
+    private init() {
+        // Start retry queue with callback
+        Task {
+            await retryQueue.start { [weak self] url in
+                self?.attemptProcessFile(url) ?? false
+            }
+        }
+    }
     
     // MARK: - Public Methods
+    
+    /// Stops the retry queue when monitoring is paused
+    func stopRetryQueue() {
+        Task {
+            await retryQueue.stop()
+        }
+    }
+    
+    /// Restarts the retry queue when monitoring resumes
+    func startRetryQueue() {
+        Task {
+            await retryQueue.start { [weak self] url in
+                self?.attemptProcessFile(url) ?? false
+            }
+        }
+    }
     
     /// Scans the Downloads folder and enqueues new files for processing.
     func scanDownloadsFolder() {
@@ -128,14 +154,17 @@ final class FileProcessor: @unchecked Sendable {
         if let modDate = try? url.resourceValues(forKeys: [.contentModificationDateKey]).contentModificationDate {
             let age = Date().timeIntervalSince(modDate)
             if age < minimumFileAge {
-                logger.debug("File too new, will retry: \(url.lastPathComponent) (age: \(age)s)")
+                logger.debug("File too new, queueing for retry: \(url.lastPathComponent) (age: \(age)s)")
+                Task { await retryQueue.enqueue(url) }
                 return false
             }
         }
         
         // Check if file is locked/being written
         if isFileLocked(url) {
-            logger.debug("File is locked: \(url.lastPathComponent)")
+            logger.debug("File is locked, queueing for retry: \(url.lastPathComponent)")
+            Task { await retryQueue.enqueue(url) }
+            logActivity(fileName: url.lastPathComponent, action: .scanned, status: .retrying, details: "File locked, queued for retry")
             return false
         }
         
@@ -154,6 +183,39 @@ final class FileProcessor: @unchecked Sendable {
     
     // MARK: - File Processing
     
+    /// Attempt to process a file (used by retry queue).
+    /// Returns true if processing succeeded, false if it should be retried.
+    private func attemptProcessFile(_ url: URL) -> Bool {
+        // Revalidate file state
+        guard fileManager.fileExists(atPath: url.path) else {
+            return true // File gone, consider it "handled"
+        }
+        
+        // Skip temp/whitelisted (shouldn't happen, but defensive)
+        let ext = url.pathExtension.lowercased()
+        if temporaryExtensions.contains(ext) || whitelistedExtensions.contains(ext) {
+            return true
+        }
+        
+        // Check if still locked
+        if isFileLocked(url) {
+            logger.debug("File still locked on retry: \(url.lastPathComponent)")
+            return false
+        }
+        
+        // Check age again
+        if let modDate = try? url.resourceValues(forKeys: [.contentModificationDateKey]).contentModificationDate {
+            let age = Date().timeIntervalSince(modDate)
+            if age < minimumFileAge {
+                return false
+            }
+        }
+        
+        // Process it
+        processFile(url)
+        return true
+    }
+    
     /// Main processing logic for a single file.
     private func processFile(_ url: URL) {
         logger.info("Processing: \(url.lastPathComponent)")
@@ -163,6 +225,9 @@ final class FileProcessor: @unchecked Sendable {
             logger.warning("File no longer exists: \(url.lastPathComponent)")
             return
         }
+        
+        // Remove from retry queue if present
+        Task { await retryQueue.dequeue(url) }
         
         // Log that we scanned the file
         logActivity(fileName: url.lastPathComponent, action: .scanned, status: .success)
