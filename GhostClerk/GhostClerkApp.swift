@@ -75,6 +75,9 @@ final class AppState: ObservableObject {
     /// Whether AI is enabled (false = use keyword fallback only, saves GPU resources)
     @AppStorage("aiEnabled") var aiEnabled: Bool = true
     
+    /// Whether to retry files with LLM after model loads
+    @AppStorage("retryWithLLM") var retryWithLLM: Bool = true
+    
     /// Whether to show notifications
     @AppStorage("showNotifications") var showNotifications: Bool = true {
         didSet {
@@ -107,7 +110,13 @@ final class AppState: ObservableObject {
         Task {
             await MLXWorker.shared.setStateCallback { [weak self] state in
                 Task { @MainActor in
+                    let previousState = self?.modelLoadingState
                     self?.modelLoadingState = state
+                    
+                    // When model finishes loading, trigger retry of fallback-processed files
+                    if case .loaded = state, previousState?.isReady != true {
+                        FileProcessor.shared.onModelLoaded()
+                    }
                 }
             }
         }
@@ -175,6 +184,7 @@ final class AppState: ObservableObject {
         FileProcessor.shared.activeRules = rules.filter { $0.isEnabled }
         FileProcessor.shared.waitForModel = waitForModel
         FileProcessor.shared.aiEnabled = aiEnabled
+        FileProcessor.shared.retryWithLLM = retryWithLLM
     }
     
     // MARK: - Data Loading

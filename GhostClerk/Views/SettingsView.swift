@@ -278,6 +278,7 @@ struct GeneralSettingsView: View {
     @State private var showPromptEditor = false
     @State private var customPrompt: String = ""
     @State private var isUsingCustomPrompt = false
+    @AppStorage("retryWithLLM") private var retryWithLLM = true
     
     var body: some View {
         Form {
@@ -295,6 +296,13 @@ struct GeneralSettingsView: View {
                     Text("Files wait for AI to load instead of using keyword fallback.")
                         .font(.caption)
                         .foregroundColor(.secondary)
+                    
+                    if !waitForModel {
+                        Toggle("Retry with AI when model loads", isOn: $retryWithLLM)
+                        Text("Re-classify files that used keyword fallback once AI is ready.")
+                            .font(.caption)
+                            .foregroundColor(.secondary)
+                    }
                 }
                 
                 Divider()

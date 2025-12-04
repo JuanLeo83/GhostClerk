@@ -60,6 +60,14 @@ final class FileProcessor: @unchecked Sendable {
     /// Whether AI is enabled (false = keyword fallback only)
     var aiEnabled: Bool = true
     
+    /// Whether to retry files with LLM after model loads (if they were processed with fallback)
+    var retryWithLLM: Bool = true
+    
+    /// Files that were processed with keyword fallback while model was loading
+    /// These will be re-processed when model becomes ready
+    private var fallbackProcessedFiles: [(url: URL, processedAt: Date)] = []
+    private let fallbackFilesLock = NSLock()
+    
     /// Returns the real Downloads folder URL (not sandbox container)
     private static var realDownloadsURL: URL {
         let homeDir = FileManager.default.homeDirectoryForCurrentUser
@@ -97,6 +105,54 @@ final class FileProcessor: @unchecked Sendable {
                 self?.attemptProcessFile(url) ?? false
             }
         }
+    }
+    
+    /// Called when model finishes loading - re-processes files that used fallback
+    func onModelLoaded() {
+        guard retryWithLLM else {
+            logger.info("Retry with LLM disabled, skipping re-processing")
+            return
+        }
+        
+        fallbackFilesLock.lock()
+        let filesToRetry = fallbackProcessedFiles
+        fallbackProcessedFiles.removeAll()
+        fallbackFilesLock.unlock()
+        
+        guard !filesToRetry.isEmpty else {
+            logger.info("No fallback-processed files to retry")
+            return
+        }
+        
+        logger.info("🔄 Model loaded - retrying \(filesToRetry.count) files with AI")
+        
+        for (url, _) in filesToRetry {
+            // Only retry if file still exists at that location
+            if fileManager.fileExists(atPath: url.path) {
+                logger.info("Retrying with AI: \(url.lastPathComponent)")
+                
+                // Clear from processed cache so it gets re-processed
+                processedFilesLock.lock()
+                processedFiles.removeValue(forKey: url.path)
+                processedFilesLock.unlock()
+                
+                // Re-process
+                processFile(url)
+            } else {
+                logger.debug("File no longer exists for retry: \(url.lastPathComponent)")
+            }
+        }
+    }
+    
+    /// Adds a file to the fallback list (processed with keywords, not AI)
+    private func addToFallbackList(_ url: URL) {
+        fallbackFilesLock.lock()
+        // Avoid duplicates
+        if !fallbackProcessedFiles.contains(where: { $0.url.path == url.path }) {
+            fallbackProcessedFiles.append((url: url, processedAt: Date()))
+            logger.debug("Added to fallback retry list: \(url.lastPathComponent)")
+        }
+        fallbackFilesLock.unlock()
     }
     
     /// Scans the Downloads folder and enqueues new files for processing.
@@ -298,16 +354,32 @@ final class FileProcessor: @unchecked Sendable {
             return
         }
         
+        // Track if we're using fallback (model not ready)
+        var usedFallback = false
+        
         // If waitForModel is enabled and model is loading, wait for it
         if waitForModel {
             let modelReady = await MLXWorker.shared.loadingState.isReady
             if !modelReady {
-                logger.info("Waiting for model to load before processing: \\(fileName)")
+                logger.info("Waiting for model to load before processing: \(fileName)")
                 let loaded = await MLXWorker.shared.waitForModelReady(timeout: 120)
                 if !loaded {
-                    logger.warning("Model load timeout, proceeding with fallback for: \\(fileName)")
+                    logger.warning("Model load timeout, proceeding with fallback for: \(fileName)")
+                    usedFallback = true
                 }
             }
+        } else {
+            // Not waiting for model - check if it's ready
+            let modelReady = await MLXWorker.shared.loadingState.isReady
+            if !modelReady {
+                usedFallback = true
+                logger.info("Model not ready, using keyword fallback for: \(fileName)")
+            }
+        }
+        
+        // If we're using fallback and retryWithLLM is enabled, save for later
+        if usedFallback && retryWithLLM {
+            addToFallbackList(url)
         }
         
         // Extract text content if supported
