@@ -81,9 +81,20 @@ Disaster prevention.
 
 Tareas opcionales para pulir la experiencia.
 
+### Modelo IA
 - [x] **Wait for Model**: Añadir opción para esperar a que el modelo LLM cargue antes de procesar archivos. Evita clasificaciones "tontas" del fallback keyword durante la carga inicial (~30s).
 - [x] **Loading Indicator**: Mostrar en el menú un estado "Cargando modelo..." mientras MLX descarga/inicializa.
-- [ ] **Retry with LLM**: Cuando el modelo termine de cargar, re-procesar archivos que fueron clasificados por fallback.
+- [ ] **Disable AI Mode**: Toggle para desactivar completamente la IA (liberar VRAM/recursos). Útil cuando el usuario necesita el 100% de la GPU para otras tareas (gaming, renders, etc.). Usaría solo fallback keywords o pausaría clasificación.
+- [ ] **Delete Downloaded Model**: Opción en Settings para eliminar el modelo descargado (~2GB) y liberar espacio en disco. Mostrar tamaño actual del modelo.
 - [ ] **Model Selection**: Permitir al usuario elegir entre diferentes modelos (Phi-3.5, Llama 3.2, etc.) en Settings.
+- [ ] **Retry with LLM**: Cuando el modelo termine de cargar, re-procesar archivos que fueron clasificados por fallback.
+
+### Reglas
+- [ ] **Rule Reordering (Drag & Drop)**: Permitir reordenar reglas arrastrando para establecer prioridad. La regla más arriba = mayor prioridad.
+- [ ] **Rule Priority Number**: Mostrar número de prioridad junto a cada regla (1, 2, 3...).
 - [ ] **Prompt Tuning**: UI para personalizar el prompt del sistema que se envía al LLM.
+
+### Analytics & UX
 - [ ] **Statistics Dashboard**: Vista con estadísticas de archivos procesados, aciertos, tiempos de inferencia.
+- [ ] **Undo Last Action**: Botón para deshacer la última clasificación (mover archivo de vuelta).
+- [ ] **Notification Center**: Notificaciones nativas de macOS cuando se clasifica un archivo.
