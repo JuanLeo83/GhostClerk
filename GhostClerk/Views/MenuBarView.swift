@@ -125,7 +125,7 @@ struct MenuBarView: View {
     // MARK: - Status Section
     
     private var statusSection: some View {
-        VStack(alignment: .leading, spacing: 2) {
+        VStack(alignment: .leading, spacing: 0) {
             HStack(spacing: 6) {
                 Circle()
                     .fill(appState.isMonitoring ? Color.green : Color.gray)
@@ -137,32 +137,32 @@ struct MenuBarView: View {
                 
                 Spacer()
             }
-            .padding(.top, 8)
             
             Text("Watching: ~/Downloads")
                 .font(.caption)
                 .foregroundColor(.secondary)
-                .padding(.vertical, 1)
+                .padding(.top, 2)
             
-            // Model loading status
+            // Model loading status - inline
             modelStatusView
-                .padding(.vertical, 1)
+                .padding(.top, 2)
             
-            if let lastChange = appState.lastChangeDetected {
-                Text("Last change: \(lastChange.formatted(.relative(presentation: .named)))")
-                    .font(.caption)
-                    .foregroundColor(.secondary)
-            } else {
-                Text("Last change: None yet")
-                    .font(.caption)
-                    .foregroundColor(.secondary)
+            Group {
+                if let lastChange = appState.lastChangeDetected {
+                    Text("Last change: \(lastChange.formatted(.relative(presentation: .named)))")
+                } else {
+                    Text("Last change: None yet")
+                }
             }
+            .font(.caption)
+            .foregroundColor(.secondary)
+            .padding(.top, 2)
         }
         .padding(.horizontal, 12)
-        .padding(.bottom, 8)
+        .padding(.vertical, 8)
     }
     
-    /// Shows the current model loading state
+    /// Shows the current model loading state - all inline
     @ViewBuilder
     private var modelStatusView: some View {
         switch appState.modelLoadingState {
@@ -174,27 +174,17 @@ struct MenuBarView: View {
                     .scaleEffect(0.6)
                     .frame(width: 12, height: 12)
                 Text(progress)
-                    .font(.caption2)
-                    .foregroundColor(.orange)
+                    .font(.caption)
+                    .foregroundStyle(.orange)
             }
         case .loaded:
-            HStack(spacing: 4) {
-                Image(systemName: "brain")
-                    .font(.caption2)
-                    .foregroundColor(.green)
-                Text("AI Ready")
-                    .font(.caption2)
-                    .foregroundColor(.green)
-            }
+            Label("AI Ready", systemImage: "brain")
+                .font(.caption)
+                .foregroundStyle(.green)
         case .failed(let error):
-            HStack(spacing: 4) {
-                Image(systemName: "exclamationmark.triangle")
-                    .font(.caption2)
-                    .foregroundColor(.red)
-                Text("AI: \(error.prefix(20))...")
-                    .font(.caption2)
-                    .foregroundColor(.red)
-            }
+            Label("AI: \(error.prefix(20))...", systemImage: "exclamationmark.triangle")
+                .font(.caption)
+                .foregroundStyle(.red)
         }
     }
     
