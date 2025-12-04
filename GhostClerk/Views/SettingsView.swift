@@ -279,6 +279,7 @@ struct GeneralSettingsView: View {
     @State private var customPrompt: String = ""
     @State private var isUsingCustomPrompt = false
     @AppStorage("retryWithLLM") private var retryWithLLM = true
+    @State private var selectedModelId: String = MLXWorker.defaultModelId
     
     var body: some View {
         Form {
@@ -306,6 +307,26 @@ struct GeneralSettingsView: View {
                 }
                 
                 Divider()
+                
+                // Model selection
+                HStack {
+                    Text("Model:")
+                    Spacer()
+                    Picker("", selection: $selectedModelId) {
+                        ForEach(MLXWorker.availableModels) { model in
+                            Text("\(model.name) (\(model.size))")
+                                .tag(model.id)
+                        }
+                    }
+                    .pickerStyle(.menu)
+                    .frame(maxWidth: 200)
+                }
+                
+                if let model = MLXWorker.availableModels.first(where: { $0.id == selectedModelId }) {
+                    Text(model.description)
+                        .font(.caption)
+                        .foregroundColor(.secondary)
+                }
                 
                 // Model status
                 HStack {
@@ -391,6 +412,13 @@ struct GeneralSettingsView: View {
         .onAppear {
             refreshCacheSize()
             isUsingCustomPrompt = PromptBuilder.isUsingCustomPrompt
+            selectedModelId = UserDefaults.standard.string(forKey: "selectedModelId") ?? MLXWorker.defaultModelId
+        }
+        .onChange(of: selectedModelId) { _, newValue in
+            Task {
+                await MLXWorker.shared.selectModel(newValue)
+                refreshCacheSize()
+            }
         }
         .sheet(isPresented: $showPromptEditor) {
             PromptEditorSheet(

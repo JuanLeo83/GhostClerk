@@ -86,7 +86,7 @@ Tareas opcionales para pulir la experiencia.
 - [x] **Loading Indicator**: Mostrar en el menú un estado "Cargando modelo..." mientras MLX descarga/inicializa.
 - [x] **Disable AI Mode**: Toggle para desactivar completamente la IA (liberar VRAM/recursos). Útil cuando el usuario necesita el 100% de la GPU para otras tareas (gaming, renders, etc.). Usaría solo fallback keywords o pausaría clasificación.
 - [x] **Delete Downloaded Model**: Opción en Settings para eliminar el modelo descargado (~2GB) y liberar espacio en disco. Mostrar tamaño actual del modelo.
-- [ ] **Model Selection**: Permitir al usuario elegir entre diferentes modelos (Phi-3.5, Llama 3.2, etc.) en Settings.
+- [x] **Model Selection**: Permitir al usuario elegir entre diferentes modelos (Phi-3.5, Llama 3.2, etc.) en Settings.
 - [x] **Retry with LLM**: Cuando el modelo termine de cargar, re-procesar archivos que fueron clasificados por fallback.
 
 ### Reglas

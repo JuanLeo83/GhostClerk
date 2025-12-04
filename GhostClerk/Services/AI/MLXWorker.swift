@@ -31,13 +31,58 @@ actor MLXWorker {
     
     static let shared = MLXWorker()
     
+    // MARK: - Available Models
+    
+    /// Available models for selection
+    static let availableModels: [MLXModel] = [
+        MLXModel(
+            id: "mlx-community/Phi-3.5-mini-instruct-4bit",
+            name: "Phi-3.5 Mini",
+            size: "~2.0 GB",
+            description: "Balanced speed and accuracy (recommended)"
+        ),
+        MLXModel(
+            id: "mlx-community/Llama-3.2-1B-Instruct-4bit",
+            name: "Llama 3.2 1B",
+            size: "~0.7 GB",
+            description: "Fastest, smallest - good for simple rules"
+        ),
+        MLXModel(
+            id: "mlx-community/Llama-3.2-3B-Instruct-4bit",
+            name: "Llama 3.2 3B",
+            size: "~2.0 GB",
+            description: "Better reasoning than 1B"
+        ),
+        MLXModel(
+            id: "mlx-community/Qwen2.5-3B-Instruct-4bit",
+            name: "Qwen 2.5 3B",
+            size: "~2.0 GB",
+            description: "Good multilingual support"
+        )
+    ]
+    
+    /// Default model ID
+    static let defaultModelId = "mlx-community/Phi-3.5-mini-instruct-4bit"
+    
     // MARK: - Configuration
     
-    /// Model to use - Phi-3.5-mini is small (~2GB) and good for classification tasks
-    /// Alternatives:
-    /// - "mlx-community/Qwen3-4B-4bit" (~2.5GB) - Better reasoning
-    /// - "mlx-community/Llama-3.2-1B-Instruct-4bit" (~0.7GB) - Faster, smaller
-    private let modelId = "mlx-community/Phi-3.5-mini-instruct-4bit"
+    /// Currently selected model ID (persisted)
+    private var modelId: String {
+        UserDefaults.standard.string(forKey: "selectedModelId") ?? Self.defaultModelId
+    }
+    
+    /// Gets the currently selected model info
+    var currentModel: MLXModel? {
+        Self.availableModels.first { $0.id == modelId }
+    }
+    
+    /// Changes the selected model (requires reload)
+    func selectModel(_ id: String) {
+        UserDefaults.standard.set(id, forKey: "selectedModelId")
+        // Unload current model - will load new one on next inference
+        unloadModel()
+        logger.info("Model changed to: \(id)")
+    }
     
     // MARK: - Properties
     
@@ -336,4 +381,14 @@ actor MLXWorker {
             }
         }
     }
+}
+
+// MARK: - Model Info
+
+/// Represents an available MLX model
+struct MLXModel: Identifiable, Equatable {
+    let id: String
+    let name: String
+    let size: String
+    let description: String
 }
