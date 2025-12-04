@@ -309,10 +309,8 @@ struct GeneralSettingsView: View {
                     }
                 }
                 
-                Divider()
-                
-                // Model selection
-                VStack(alignment: .leading, spacing: 8) {
+                // Model selection (no divider, just spacing)
+                VStack(alignment: .leading, spacing: 4) {
                     Text("Model:")
                         .fontWeight(.medium)
                     
@@ -375,8 +373,6 @@ struct GeneralSettingsView: View {
                     }
                 }
                 
-                Divider()
-                
                 // Model status
                 HStack {
                     Text("Status:")
@@ -386,22 +382,35 @@ struct GeneralSettingsView: View {
             }
             
             Section("Prompt Tuning") {
-                HStack {
-                    Text("System Prompt:")
-                    Spacer()
-                    if isUsingCustomPrompt {
-                        Text("Custom")
-                            .font(.caption)
-                            .foregroundColor(.orange)
-                            .padding(.horizontal, 8)
-                            .padding(.vertical, 2)
-                            .background(Color.orange.opacity(0.2))
-                            .cornerRadius(4)
-                    } else {
-                        Text("Default")
-                            .font(.caption)
-                            .foregroundColor(.secondary)
+                VStack(alignment: .leading, spacing: 6) {
+                    HStack {
+                        Text("System Prompt:")
+                        Spacer()
+                        if isUsingCustomPrompt {
+                            Text("Custom")
+                                .font(.caption)
+                                .foregroundColor(.orange)
+                                .padding(.horizontal, 8)
+                                .padding(.vertical, 2)
+                                .background(Color.orange.opacity(0.2))
+                                .cornerRadius(4)
+                        } else {
+                            Text("Default")
+                                .font(.caption)
+                                .foregroundColor(.secondary)
+                        }
                     }
+                    
+                    // Preview of the prompt (first 2 lines)
+                    Text(promptPreview)
+                        .font(.caption)
+                        .foregroundColor(.secondary)
+                        .lineLimit(2)
+                        .truncationMode(.tail)
+                        .padding(8)
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                        .background(Color(nsColor: .textBackgroundColor).opacity(0.5))
+                        .cornerRadius(4)
                 }
                 
                 Button("Edit System Prompt...") {
@@ -469,6 +478,19 @@ struct GeneralSettingsView: View {
         } message: {
             Text("This will free up \(formatBytes(modelToDeleteSize)). You'll need to re-download it to use this model again.")
         }
+    }
+    
+    private var promptPreview: String {
+        let prompt = PromptBuilder.systemPrompt
+        // Take first ~150 characters and truncate at word boundary
+        if prompt.count <= 150 {
+            return prompt
+        }
+        let truncated = String(prompt.prefix(150))
+        if let lastSpace = truncated.lastIndex(of: " ") {
+            return String(truncated[..<lastSpace]) + "..."
+        }
+        return truncated + "..."
     }
     
     @ViewBuilder

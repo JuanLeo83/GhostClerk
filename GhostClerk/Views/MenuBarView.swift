@@ -118,44 +118,48 @@ struct MenuBarView: View {
             Spacer()
         }
         .padding(.horizontal, 12)
-        .padding(.vertical, 10)
+        .padding(.vertical, 8)
         .background(alert.color)
     }
     
     // MARK: - Status Section
     
     private var statusSection: some View {
-        VStack(alignment: .leading, spacing: 4) {
-            HStack {
+        VStack(alignment: .leading, spacing: 2) {
+            HStack(spacing: 6) {
                 Circle()
                     .fill(appState.isMonitoring ? Color.green : Color.gray)
                     .frame(width: 8, height: 8)
                 
                 Text(appState.isMonitoring ? "Monitoring Active" : "Monitoring Paused")
-                    .font(.headline)
+                    .font(.subheadline)
+                    .fontWeight(.medium)
                 
                 Spacer()
             }
+            .padding(.top, 8)
             
             Text("Watching: ~/Downloads")
                 .font(.caption)
                 .foregroundColor(.secondary)
+                .padding(.vertical, 1)
             
             // Model loading status
             modelStatusView
+                .padding(.vertical, 1)
             
             if let lastChange = appState.lastChangeDetected {
                 Text("Last change: \(lastChange.formatted(.relative(presentation: .named)))")
-                    .font(.caption2)
+                    .font(.caption)
                     .foregroundColor(.secondary)
             } else {
                 Text("Last change: None yet")
-                    .font(.caption2)
+                    .font(.caption)
                     .foregroundColor(.secondary)
             }
         }
         .padding(.horizontal, 12)
-        .padding(.vertical, 8)
+        .padding(.bottom, 8)
     }
     
     /// Shows the current model loading state
@@ -177,6 +181,7 @@ struct MenuBarView: View {
             HStack(spacing: 4) {
                 Image(systemName: "brain")
                     .font(.caption2)
+                    .foregroundColor(.green)
                 Text("AI Ready")
                     .font(.caption2)
                     .foregroundColor(.green)
@@ -185,6 +190,7 @@ struct MenuBarView: View {
             HStack(spacing: 4) {
                 Image(systemName: "exclamationmark.triangle")
                     .font(.caption2)
+                    .foregroundColor(.red)
                 Text("AI: \(error.prefix(20))...")
                     .font(.caption2)
                     .foregroundColor(.red)
