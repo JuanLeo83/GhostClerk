@@ -89,6 +89,27 @@ struct MenuBarView: View {
                 Label("Scan Now", systemImage: "arrow.clockwise")
             }
             .buttonStyle(MenuButtonStyle())
+            
+            Divider()
+            
+            Button {
+                appState.openReviewTray()
+            } label: {
+                HStack {
+                    Label("Review Tray", systemImage: "tray.full")
+                    Spacer()
+                    if appState.reviewTrayCount > 0 {
+                        Text("\(appState.reviewTrayCount)")
+                            .font(.caption)
+                            .padding(.horizontal, 6)
+                            .padding(.vertical, 2)
+                            .background(Color.orange)
+                            .foregroundColor(.white)
+                            .clipShape(Capsule())
+                    }
+                }
+            }
+            .buttonStyle(MenuButtonStyle())
         }
     }
     

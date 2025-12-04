@@ -84,11 +84,19 @@ struct RulesSettingsView: View {
                 } else {
                     List {
                         ForEach(appState.rules) { rule in
-                            RuleRowView(rule: rule, onDelete: {
-                                Task {
-                                    await appState.deleteRule(rule)
+                            RuleRowView(
+                                rule: rule,
+                                onEdit: { newPrompt, newTargetPath in
+                                    Task {
+                                        await appState.updateRule(rule, prompt: newPrompt, targetPath: newTargetPath)
+                                    }
+                                },
+                                onDelete: {
+                                    Task {
+                                        await appState.deleteRule(rule)
+                                    }
                                 }
-                            })
+                            )
                         }
                     }
                     .listStyle(.inset)
@@ -114,29 +122,87 @@ struct RulesSettingsView: View {
 
 struct RuleRowView: View {
     let rule: Rule
+    let onEdit: (String, String) -> Void
     let onDelete: () -> Void
     
+    @State private var isEditing = false
+    @State private var editPrompt: String = ""
+    @State private var editTargetPath: String = ""
+    @State private var showingFolderPicker = false
+    
     var body: some View {
-        HStack {
-            VStack(alignment: .leading, spacing: 2) {
-                Text(rule.naturalPrompt)
-                    .font(.body)
-                
-                Text("→ \(rule.targetPath)")
-                    .font(.caption)
-                    .foregroundColor(.secondary)
+        VStack(alignment: .leading, spacing: 4) {
+            if isEditing {
+                // Edit mode
+                VStack(alignment: .leading, spacing: 8) {
+                    TextField("Rule description", text: $editPrompt)
+                        .textFieldStyle(.roundedBorder)
+                    
+                    HStack {
+                        TextField("Target folder", text: $editTargetPath)
+                            .textFieldStyle(.roundedBorder)
+                        
+                        Button("Browse") {
+                            showingFolderPicker = true
+                        }
+                        .buttonStyle(.borderless)
+                    }
+                    
+                    HStack {
+                        Button("Save") {
+                            onEdit(editPrompt, editTargetPath)
+                            isEditing = false
+                        }
+                        .disabled(editPrompt.isEmpty || editTargetPath.isEmpty)
+                        
+                        Button("Cancel") {
+                            isEditing = false
+                        }
+                    }
+                }
+                .padding(.vertical, 4)
+            } else {
+                // Display mode
+                HStack {
+                    VStack(alignment: .leading, spacing: 2) {
+                        Text(rule.naturalPrompt)
+                            .font(.body)
+                        
+                        Text("→ \(rule.targetPath)")
+                            .font(.caption)
+                            .foregroundColor(.secondary)
+                    }
+                    
+                    Spacer()
+                    
+                    Button {
+                        editPrompt = rule.naturalPrompt
+                        editTargetPath = rule.targetPath
+                        isEditing = true
+                    } label: {
+                        Image(systemName: "pencil")
+                    }
+                    .buttonStyle(.borderless)
+                    
+                    Button(role: .destructive) {
+                        onDelete()
+                    } label: {
+                        Image(systemName: "trash")
+                    }
+                    .buttonStyle(.borderless)
+                }
+                .padding(.vertical, 4)
             }
-            
-            Spacer()
-            
-            Button(role: .destructive) {
-                onDelete()
-            } label: {
-                Image(systemName: "trash")
-            }
-            .buttonStyle(.borderless)
         }
-        .padding(.vertical, 4)
+        .fileImporter(
+            isPresented: $showingFolderPicker,
+            allowedContentTypes: [.folder],
+            allowsMultipleSelection: false
+        ) { result in
+            if case .success(let urls) = result, let url = urls.first {
+                editTargetPath = url.path
+            }
+        }
     }
 }
 

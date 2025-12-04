@@ -80,12 +80,18 @@ final class AppState: ObservableObject {
         }
     }
     
+    /// Updates FileProcessor with current rules
+    private func syncRulesToProcessor() {
+        FileProcessor.shared.activeRules = rules.filter { $0.isEnabled }
+    }
+    
     // MARK: - Data Loading
     
     private func loadData() async {
         do {
             rules = try await StorageService.shared.loadRules()
             recentLogs = try await StorageService.shared.loadLogs()
+            syncRulesToProcessor()
             logger.info("Loaded \(self.rules.count) rules and \(self.recentLogs.count) logs")
         } catch {
             logger.error("Failed to load data: \(error.localizedDescription)")
@@ -95,9 +101,13 @@ final class AppState: ObservableObject {
     // MARK: - Monitoring Control
     
     func startMonitoring() {
+        syncRulesToProcessor()
         folderMonitor?.start()
         isMonitoring = true
         logger.info("Monitoring started")
+        
+        // Immediately scan existing files in Downloads
+        FileProcessor.shared.scanDownloadsFolder()
     }
     
     func stopMonitoring() {
@@ -141,6 +151,7 @@ final class AppState: ObservableObject {
     
     /// Manually trigger a scan of the Downloads folder
     func manualScan() {
+        syncRulesToProcessor()
         FileProcessor.shared.scanDownloadsFolder()
     }
     
@@ -150,16 +161,42 @@ final class AppState: ObservableObject {
         let rule = Rule(naturalPrompt: prompt, targetPath: targetPath)
         do {
             rules = try await StorageService.shared.addRule(rule)
+            syncRulesToProcessor()
         } catch {
             logger.error("Failed to add rule: \(error.localizedDescription)")
+        }
+    }
+    
+    func updateRule(_ rule: Rule, prompt: String, targetPath: String) async {
+        var updatedRule = rule
+        updatedRule.naturalPrompt = prompt
+        updatedRule.targetPath = targetPath
+        do {
+            rules = try await StorageService.shared.updateRule(updatedRule)
+            syncRulesToProcessor()
+        } catch {
+            logger.error("Failed to update rule: \(error.localizedDescription)")
         }
     }
     
     func deleteRule(_ rule: Rule) async {
         do {
             rules = try await StorageService.shared.deleteRule(id: rule.id)
+            syncRulesToProcessor()
         } catch {
             logger.error("Failed to delete rule: \(error.localizedDescription)")
         }
+    }
+    
+    // MARK: - Review Tray
+    
+    /// Number of files in the Review Tray
+    var reviewTrayCount: Int {
+        ClerkFileManager.shared.reviewTrayCount()
+    }
+    
+    /// Opens the Review Tray folder in Finder
+    func openReviewTray() {
+        ClerkFileManager.shared.openReviewTray()
     }
 }

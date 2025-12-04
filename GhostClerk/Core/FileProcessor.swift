@@ -51,6 +51,9 @@ final class FileProcessor: @unchecked Sendable {
     /// Callback for logging activity
     var onActivityLogged: ((ActivityLog) -> Void)?
     
+    /// Active rules for file classification (set from AppState)
+    var activeRules: [Rule] = []
+    
     /// Returns the real Downloads folder URL (not sandbox container)
     private static var realDownloadsURL: URL {
         let homeDir = FileManager.default.homeDirectoryForCurrentUser
@@ -260,21 +263,97 @@ final class FileProcessor: @unchecked Sendable {
             logger.debug("File hash: \(hash.prefix(16))...")
         }
         
-        // Extract text content (PDFKit / Vision OCR)
+        // Get active rules
+        let rules = activeRules
+        
+        // Extract text and run inference
         Task {
-            if TextExtractor.shared.isSupported(url) {
-                if let extractedText = await TextExtractor.shared.extractText(from: url) {
-                    logger.info("Extracted \(extractedText.count) chars from: \(url.lastPathComponent)")
-                    // TODO: Phase 3 - Send extractedText to MLX for rule matching
-                } else {
-                    logger.debug("No text extracted from: \(url.lastPathComponent)")
-                }
-            }
-            
-            // TODO: Phase 4 - Move file to destination or Review Tray
+            await processFileWithAI(url: url, rules: rules)
         }
         
         logger.info("Completed processing: \(url.lastPathComponent)")
+    }
+    
+    /// Processes a file with AI inference and moves it accordingly.
+    private func processFileWithAI(url: URL, rules: [Rule]) async {
+        let fileName = url.lastPathComponent
+        
+        // Extract text content if supported
+        var extractedText: String?
+        if TextExtractor.shared.isSupported(url) {
+            extractedText = await TextExtractor.shared.extractText(from: url)
+            if let text = extractedText {
+                logger.info("Extracted \(text.count) chars from: \(fileName)")
+            }
+        }
+        
+        // Combine filename + extracted text for better matching
+        // The filename often contains important classification hints (e.g., "CV", "Invoice")
+        let textForInference: String
+        if let extracted = extractedText {
+            textForInference = "FILENAME: \(fileName)\n\nCONTENT:\n\(extracted)"
+        } else {
+            textForInference = fileName
+        }
+        
+        // Skip AI if no rules defined
+        guard !rules.isEmpty else {
+            logger.debug("No rules defined, skipping AI inference")
+            return
+        }
+        
+        // Run MLX inference to find matching rule
+        do {
+            if let matchedRule = try await MLXWorker.shared.infer(text: textForInference, rules: rules) {
+                // Move file to rule's target folder
+                logger.info("Rule matched: '\(matchedRule.naturalPrompt)' -> \(matchedRule.targetPath)")
+                
+                if ClerkFileManager.shared.moveFile(url, toRuleDestination: matchedRule) != nil {
+                    logActivity(
+                        fileName: fileName,
+                        action: .moved,
+                        status: .success,
+                        matchedRuleId: matchedRule.id,
+                        details: "Moved to \(matchedRule.targetPath)"
+                    )
+                } else {
+                    logActivity(
+                        fileName: fileName,
+                        action: .moved,
+                        status: .failed,
+                        matchedRuleId: matchedRule.id,
+                        details: "Failed to move file"
+                    )
+                }
+            } else {
+                // No rule matched - move to Review Tray
+                logger.info("No rule matched for: \(fileName), moving to Review Tray")
+                
+                if ClerkFileManager.shared.moveToReviewTray(url) != nil {
+                    logActivity(
+                        fileName: fileName,
+                        action: .reviewTray,
+                        status: .success,
+                        details: "No matching rule"
+                    )
+                } else {
+                    logActivity(
+                        fileName: fileName,
+                        action: .reviewTray,
+                        status: .failed,
+                        details: "Failed to move to Review Tray"
+                    )
+                }
+            }
+        } catch {
+            logger.error("AI inference failed for \(fileName): \(error.localizedDescription)")
+            logActivity(
+                fileName: fileName,
+                action: .scanned,
+                status: .failed,
+                details: "AI inference error: \(error.localizedDescription)"
+            )
+        }
     }
     
     // MARK: - Activity Logging
@@ -297,3 +376,4 @@ final class FileProcessor: @unchecked Sendable {
         onActivityLogged?(log)
     }
 }
+

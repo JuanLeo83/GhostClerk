@@ -28,12 +28,12 @@ The monitoring and filtering engine. Prioritized over Story 1 because we need to
 
 Integration of MLX and Business Logic.
 
-- [ ] **Prompt Builder**: Create `Services/AI/PromptBuilder.swift`. Must receive the array of Rules and format the sequential string ("1. Rule A, 2. Rule B...").
-- [ ] **MLX Service**: Implement `Services/AI/MLXWorker.swift`.
-    - Logic to download `Phi-3.5-mini-instruct` model (GGUF) if it doesn't exist.
-    - Load model into memory.
-    - Function `infer(text: String, rules: [Rule]) -> RuleID?`.
-- [ ] **Rules UI**: Implement `Views/Settings/RulesListView.swift` with `onMove` (Drag & Drop) support to define visual priority.
+- [x] **Prompt Builder**: Create `Services/AI/PromptBuilder.swift`. Formats rules as numbered list for LLM.
+- [x] **MLX Service**: Implement `Services/AI/MLXWorker.swift`.
+    - Mock inference with keyword matching (ready for real MLX integration).
+    - Structure prepared for Phi-3.5-mini model loading.
+- [ ] **MLX Package**: Add `mlx-swift-lm` dependency to enable real AI inference.
+- [ ] **Rules UI**: Implement `Views/Settings/RulesListView.swift` with `onMove` (Drag & Drop) support.
 
 ## Story 2 (Cont.): Extraction & OCR (The Eyes)
 
@@ -48,27 +48,27 @@ Ability to read content.
 
 Prevent data overwriting.
 
-- [ ] **Hash Utility**: Create `Utils/FileHash.swift` using `CryptoKit` to calculate SHA-256 (streaming).
-- [ ] **Duplicate Logic**: Implement in `Services/FileSystem/ClerkFileManager.swift`:
+- [x] **Hash Utility**: `Utils/FileHasher.swift` using CryptoKit SHA-256 (streaming).
+- [x] **Duplicate Logic**: Implemented in `Services/FileSystem/ClerkFileManager.swift`:
     - Check existence at destination.
     - Compare Hash.
     - Decision: `delete` (if hash equal) or `rename` (if hash different).
-- [ ] **Rename Helper**: Implement function that generates `file(1).pdf`, `file(2).pdf` recursively.
+- [x] **Rename Helper**: Function that generates `file(1).pdf`, `file(2).pdf` recursively.
 
 ## Story 4: Review Tray & UI (Feedback)
 
 Uncertainty management and User Interface.
 
-- [ ] **Review Tray Logic**: In the main pipeline, if MLX returns `nil`, move file to `~/Downloads/_GhostReview` folder.
-- [ ] **MenuBar UI**: Implement `GhostClerkApp.swift` (MenuBarExtra):
-    - Show status ("Scanning..." / "Inactive").
+- [x] **Review Tray Logic**: If MLX returns `nil`, move file to `~/Downloads/_GhostReview` folder.
+- [x] **MenuBar UI**: Implemented `GhostClerkApp.swift` (MenuBarExtra):
+    - Show status ("Monitoring Active" / "Monitoring Paused").
     - Button to open Settings.
-    - Button to open Review Tray.
-- [ ] **Visual Alert**: Change the Tray icon (e.g., add a red dot) if there are files in the Review Tray.
+    - Button to open Review Tray with count badge.
+- [ ] **Visual Alert**: Change the Menu Bar icon (e.g., add a red dot) if there are files in the Review Tray.
 
 ## Story 5: Safety Net
 
 Disaster prevention.
 
-- [ ] **Trash Logic**: Implement `Services/FileSystem/TrashManager.swift`.
-    - Ensure any "delete" action requested by a rule moves the file to `~/.ghost_clerk_trash` instead of deleting it.
+- [x] **Trash Logic**: Implemented in `Services/FileSystem/ClerkFileManager.swift`.
+    - Any duplicate file deletion moves to `~/.ghost_clerk_trash` with timestamp.
