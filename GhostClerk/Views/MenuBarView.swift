@@ -125,7 +125,7 @@ struct MenuBarView: View {
     // MARK: - Status Section
     
     private var statusSection: some View {
-        VStack(alignment: .leading, spacing: 0) {
+        VStack(alignment: .leading, spacing: 2) {
             HStack(spacing: 6) {
                 Circle()
                     .fill(appState.isMonitoring ? Color.green : Color.gray)
@@ -134,29 +134,24 @@ struct MenuBarView: View {
                 Text(appState.isMonitoring ? "Monitoring Active" : "Monitoring Paused")
                     .font(.subheadline)
                     .fontWeight(.medium)
-                
-                Spacer()
             }
             
             Text("Watching: ~/Downloads")
                 .font(.caption)
                 .foregroundColor(.secondary)
-                .padding(.top, 2)
             
             // Model loading status - inline
             modelStatusView
-                .padding(.top, 2)
             
-            Group {
-                if let lastChange = appState.lastChangeDetected {
-                    Text("Last change: \(lastChange.formatted(.relative(presentation: .named)))")
-                } else {
-                    Text("Last change: None yet")
-                }
+            if let lastChange = appState.lastChangeDetected {
+                Text("Last change: \(lastChange.formatted(.relative(presentation: .named)))")
+                    .font(.caption)
+                    .foregroundColor(.secondary)
+            } else {
+                Text("Last change: None yet")
+                    .font(.caption)
+                    .foregroundColor(.secondary)
             }
-            .font(.caption)
-            .foregroundColor(.secondary)
-            .padding(.top, 2)
         }
         .padding(.horizontal, 12)
         .padding(.vertical, 8)
