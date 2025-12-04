@@ -57,6 +57,9 @@ final class FileProcessor: @unchecked Sendable {
     /// Whether to wait for model before processing (set from AppState)
     var waitForModel: Bool = true
     
+    /// Whether AI is enabled (false = keyword fallback only)
+    var aiEnabled: Bool = true
+    
     /// Returns the real Downloads folder URL (not sandbox container)
     private static var realDownloadsURL: URL {
         let homeDir = FileManager.default.homeDirectoryForCurrentUser
@@ -281,14 +284,28 @@ final class FileProcessor: @unchecked Sendable {
     private func processFileWithAI(url: URL, rules: [Rule]) async {
         let fileName = url.lastPathComponent
         
+        // If AI is disabled, skip to review tray (or use keywords if we add that later)
+        guard aiEnabled else {
+            logger.info("AI disabled, moving to Review Tray: \\(fileName)")
+            if ClerkFileManager.shared.moveToReviewTray(url) != nil {
+                logActivity(
+                    fileName: fileName,
+                    action: .reviewTray,
+                    status: .success,
+                    details: "AI disabled"
+                )
+            }
+            return
+        }
+        
         // If waitForModel is enabled and model is loading, wait for it
         if waitForModel {
             let modelReady = await MLXWorker.shared.loadingState.isReady
             if !modelReady {
-                logger.info("Waiting for model to load before processing: \(fileName)")
+                logger.info("Waiting for model to load before processing: \\(fileName)")
                 let loaded = await MLXWorker.shared.waitForModelReady(timeout: 120)
                 if !loaded {
-                    logger.warning("Model load timeout, proceeding with fallback for: \(fileName)")
+                    logger.warning("Model load timeout, proceeding with fallback for: \\(fileName)")
                 }
             }
         }

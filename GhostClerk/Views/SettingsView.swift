@@ -22,6 +22,7 @@ struct SettingsView: View {
                 }
             
             GeneralSettingsView()
+                .environmentObject(appState)
                 .tabItem {
                     Label("General", systemImage: "gear")
                 }
@@ -259,9 +260,15 @@ struct RuleRowView: View {
 
 struct GeneralSettingsView: View {
     
+    @EnvironmentObject var appState: AppState
     @AppStorage("launchAtLogin") private var launchAtLogin = false
     @AppStorage("showNotifications") private var showNotifications = true
     @AppStorage("waitForModel") private var waitForModel = true
+    @AppStorage("aiEnabled") private var aiEnabled = true
+    
+    @State private var modelCacheSize: Int64 = 0
+    @State private var isDeleting = false
+    @State private var showDeleteConfirmation = false
     
     var body: some View {
         Form {
@@ -269,10 +276,50 @@ struct GeneralSettingsView: View {
             Toggle("Show Notifications", isOn: $showNotifications)
             
             Section("AI Model") {
-                Toggle("Wait for model before classifying", isOn: $waitForModel)
-                Text("When enabled, files wait for the AI model to load before being classified. This prevents fallback keyword matching during startup.")
+                Toggle("Enable AI Classification", isOn: $aiEnabled)
+                Text("When disabled, files go to Review Tray. Saves GPU/memory resources.")
                     .font(.caption)
                     .foregroundColor(.secondary)
+                
+                if aiEnabled {
+                    Toggle("Wait for model before classifying", isOn: $waitForModel)
+                    Text("Files wait for AI to load instead of using keyword fallback.")
+                        .font(.caption)
+                        .foregroundColor(.secondary)
+                }
+                
+                Divider()
+                
+                // Model status
+                HStack {
+                    Text("Status:")
+                    Spacer()
+                    modelStatusText
+                }
+                
+                // Cache size
+                HStack {
+                    Text("Cache Size:")
+                    Spacer()
+                    Text(formatBytes(modelCacheSize))
+                        .foregroundColor(.secondary)
+                }
+                
+                // Delete model button
+                if modelCacheSize > 0 {
+                    Button(role: .destructive) {
+                        showDeleteConfirmation = true
+                    } label: {
+                        HStack {
+                            if isDeleting {
+                                ProgressView()
+                                    .scaleEffect(0.7)
+                            }
+                            Text(isDeleting ? "Deleting..." : "Delete Downloaded Model")
+                        }
+                    }
+                    .disabled(isDeleting)
+                }
             }
             
             Section("Watched Folder") {
@@ -288,6 +335,71 @@ struct GeneralSettingsView: View {
         }
         .formStyle(.grouped)
         .padding()
+        .onAppear {
+            refreshCacheSize()
+        }
+        .confirmationDialog(
+            "Delete Model Cache?",
+            isPresented: $showDeleteConfirmation,
+            titleVisibility: .visible
+        ) {
+            Button("Delete", role: .destructive) {
+                deleteModelCache()
+            }
+            Button("Cancel", role: .cancel) {}
+        } message: {
+            Text("This will delete the downloaded AI model (\(formatBytes(modelCacheSize))). You'll need to re-download it when AI is used again.")
+        }
+    }
+    
+    @ViewBuilder
+    private var modelStatusText: some View {
+        switch appState.modelLoadingState {
+        case .idle:
+            Text("Not loaded")
+                .foregroundColor(.secondary)
+        case .loading(let progress):
+            Text(progress)
+                .foregroundColor(.orange)
+        case .loaded:
+            Text("Ready")
+                .foregroundColor(.green)
+        case .failed(let error):
+            Text("Error: \(error.prefix(20))...")
+                .foregroundColor(.red)
+        }
+    }
+    
+    private func formatBytes(_ bytes: Int64) -> String {
+        let formatter = ByteCountFormatter()
+        formatter.countStyle = .file
+        return formatter.string(fromByteCount: bytes)
+    }
+    
+    private func refreshCacheSize() {
+        Task {
+            let size = await MLXWorker.shared.getModelCacheSize()
+            await MainActor.run {
+                modelCacheSize = size
+            }
+        }
+    }
+    
+    private func deleteModelCache() {
+        isDeleting = true
+        Task {
+            do {
+                try await MLXWorker.shared.deleteModelCache()
+                await MainActor.run {
+                    modelCacheSize = 0
+                    isDeleting = false
+                }
+            } catch {
+                await MainActor.run {
+                    isDeleting = false
+                }
+            }
+        }
     }
 }
 

@@ -127,6 +127,70 @@ actor MLXWorker {
         logger.info("Model unloaded")
     }
     
+    /// Returns the size of the cached model on disk (if any)
+    func getModelCacheSize() -> Int64 {
+        // MLX stores models in the app's Caches directory (sandbox container)
+        guard let cacheDir = FileManager.default.urls(for: .cachesDirectory, in: .userDomainMask).first else {
+            return 0
+        }
+        
+        // Check multiple possible locations
+        let possiblePaths = [
+            cacheDir.appendingPathComponent("huggingface/hub"),  // Standard HF location
+            cacheDir.appendingPathComponent("models"),           // MLX Swift location
+            cacheDir                                              // Entire cache dir as fallback
+        ]
+        
+        for path in possiblePaths {
+            let size = Self.directorySize(at: path)
+            if size > 0 {
+                logger.debug("Found cache at \(path.path): \(size) bytes")
+                return size
+            }
+        }
+        
+        return 0
+    }
+    
+    /// Deletes the downloaded model from disk cache
+    func deleteModelCache() throws {
+        // First unload from memory
+        unloadModel()
+        
+        guard let cacheDir = FileManager.default.urls(for: .cachesDirectory, in: .userDomainMask).first else {
+            return
+        }
+        
+        // Delete both possible cache locations
+        let pathsToDelete = [
+            cacheDir.appendingPathComponent("huggingface"),
+            cacheDir.appendingPathComponent("models")
+        ]
+        
+        for path in pathsToDelete {
+            if FileManager.default.fileExists(atPath: path.path) {
+                try FileManager.default.removeItem(at: path)
+                logger.info("Deleted model cache at: \(path.path)")
+            }
+        }
+    }
+    
+    /// Calculates total size of a directory
+    private static func directorySize(at url: URL) -> Int64 {
+        let fileManager = FileManager.default
+        guard let enumerator = fileManager.enumerator(at: url, includingPropertiesForKeys: [.fileSizeKey], options: [.skipsHiddenFiles]) else {
+            return 0
+        }
+        
+        var totalSize: Int64 = 0
+        for case let fileURL as URL in enumerator {
+            if let fileSize = try? fileURL.resourceValues(forKeys: [.fileSizeKey]).fileSize {
+                totalSize += Int64(fileSize)
+            }
+        }
+        return totalSize
+    }
+    
     /// Waits for the model to finish loading (with timeout).
     /// Returns true if model loaded successfully, false otherwise.
     func waitForModelReady(timeout: TimeInterval = 120) async -> Bool {

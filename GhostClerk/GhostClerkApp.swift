@@ -72,6 +72,9 @@ final class AppState: ObservableObject {
     /// Whether to wait for model before processing files (user preference)
     @AppStorage("waitForModel") var waitForModel: Bool = true
     
+    /// Whether AI is enabled (false = use keyword fallback only, saves GPU resources)
+    @AppStorage("aiEnabled") var aiEnabled: Bool = true
+    
     /// The folder monitor instance
     private var folderMonitor: FolderMonitor?
     
@@ -145,6 +148,7 @@ final class AppState: ObservableObject {
     private func syncRulesToProcessor() {
         FileProcessor.shared.activeRules = rules.filter { $0.isEnabled }
         FileProcessor.shared.waitForModel = waitForModel
+        FileProcessor.shared.aiEnabled = aiEnabled
     }
     
     // MARK: - Data Loading
