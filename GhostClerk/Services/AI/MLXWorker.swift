@@ -98,14 +98,20 @@ actor MLXWorker {
             return nil
         }
         
-        // Load model if not loaded
+        // Try to load model if not loaded
         if !isModelLoaded {
             logger.info("Model not loaded, loading now...")
-            try await loadModel()
+            do {
+                try await loadModel()
+            } catch {
+                logger.warning("Failed to load model, using keyword fallback: \(error.localizedDescription)")
+                return mockInference(text: text, rules: rules)
+            }
         }
         
         guard let session = chatSession else {
-            throw MLXError.sessionNotInitialized
+            logger.warning("Chat session not initialized, using keyword fallback")
+            return mockInference(text: text, rules: rules)
         }
         
         // Build the prompt

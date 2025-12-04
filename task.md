@@ -6,7 +6,7 @@ Critical configuration tasks for the Xcode project, system permissions, and depe
 
 - [x] **Init Project**: Create macOS App project in Xcode (SwiftUI). Configure minimum target macOS 14.0.
 - [x] **Agent Mode**: Modify `Info.plist` setting `Application is agent (UIElement)` to `YES` to hide the Dock icon.
-- [ ] **Dependencies**: Add Swift Package Manager package: `mlx-swift` (https://github.com/ml-explore/mlx-swift).
+- [x] **Dependencies**: Add Swift Package Manager package: `mlx-swift-lm` (https://github.com/ml-explore/mlx-swift-lm).
 - [x] **Permissions (Sandbox)**: Configure *Entitlements*: `com.apple.security.files.user-selected.read-write` and `com.apple.security.files.downloads.read-write`.
 - [x] **File Structure**: Create groups in Xcode: `Core`, `Services`, `Models`, `Views`, `Utils`.
 - [x] **Data Models**: Define `Codable` structs in `Models/`:
@@ -32,7 +32,7 @@ Integration of MLX and Business Logic.
 - [x] **MLX Service**: Implement `Services/AI/MLXWorker.swift`.
     - Mock inference with keyword matching (ready for real MLX integration).
     - Structure prepared for Phi-3.5-mini model loading.
-- [ ] **MLX Package**: Add `mlx-swift-lm` dependency to enable real AI inference.
+- [x] **MLX Package**: Add `mlx-swift-lm` dependency and integrate real AI inference.
 - [x] **Rules UI**: Implement rule editing in `Views/SettingsView.swift` with add/edit/delete support.
 - [x] **Security-Scoped Bookmarks**: Implement `Services/FileSystem/BookmarkManager.swift` for persistent folder access outside sandbox.
 
