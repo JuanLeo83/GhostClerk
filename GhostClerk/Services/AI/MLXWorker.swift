@@ -7,10 +7,8 @@
 
 import Foundation
 import os.log
-
-// Note: Import MLXLLM when the package is added to the project
-// import MLXLLM
-// import MLXLMCommon
+import MLXLLM
+import MLXLMCommon
 
 /// Service responsible for running local LLM inference using MLX.
 /// Uses a small, quantized model optimized for Apple Silicon.
@@ -23,7 +21,9 @@ actor MLXWorker {
     // MARK: - Configuration
     
     /// Model to use - Phi-3.5-mini is small (~2GB) and good for classification tasks
-    /// Alternative: "mlx-community/Qwen3-4B-4bit" (~2.5GB)
+    /// Alternatives:
+    /// - "mlx-community/Qwen3-4B-4bit" (~2.5GB) - Better reasoning
+    /// - "mlx-community/Llama-3.2-1B-Instruct-4bit" (~0.7GB) - Faster, smaller
     private let modelId = "mlx-community/Phi-3.5-mini-instruct-4bit"
     
     // MARK: - Properties
@@ -36,11 +36,11 @@ actor MLXWorker {
     /// Whether model is currently loading
     private(set) var isLoading = false
     
-    /// Placeholder for the actual model - will be typed as LLMModel when MLXLLM is imported
-    private var model: Any?
+    /// The loaded model context
+    private var modelContext: ModelContext?
     
-    /// Placeholder for chat session
-    private var chatSession: Any?
+    /// Chat session for conversational inference
+    private var chatSession: ChatSession?
     
     // MARK: - Initialization
     
@@ -61,29 +61,27 @@ actor MLXWorker {
         
         logger.info("Loading MLX model: \(self.modelId)")
         
-        // TODO: Uncomment when MLXLLM package is added
-        /*
         do {
-            let loadedModel = try await MLXLLM.loadModel(id: modelId)
-            self.model = loadedModel
-            self.chatSession = ChatSession(loadedModel)
+            // Load the model from Hugging Face using the simplified API
+            let loadedModel = try await MLXLMCommon.loadModel(id: modelId)
+            
+            // Store the model context
+            modelContext = loadedModel
+            
+            // Create a chat session
+            chatSession = ChatSession(loadedModel)
+            
             isModelLoaded = true
-            logger.info("Model loaded successfully")
+            logger.info("✅ Model loaded successfully: \(self.modelId)")
         } catch {
-            logger.error("Failed to load model: \(error.localizedDescription)")
+            logger.error("❌ Failed to load model: \(error.localizedDescription)")
             throw MLXError.modelLoadFailed(error.localizedDescription)
         }
-        */
-        
-        // Temporary: Simulate loading for now
-        try await Task.sleep(nanoseconds: 1_000_000_000) // 1 second
-        isModelLoaded = true
-        logger.info("Model loaded (simulated)")
     }
     
     /// Unloads the model from memory to free resources.
     func unloadModel() {
-        model = nil
+        modelContext = nil
         chatSession = nil
         isModelLoaded = false
         logger.info("Model unloaded")
@@ -91,7 +89,7 @@ actor MLXWorker {
     
     /// Performs inference to match file content against rules.
     /// - Parameters:
-    ///   - text: Extracted text from the file
+    ///   - text: Extracted text from the file (includes filename and content)
     ///   - rules: Array of user rules in priority order
     /// - Returns: The matched Rule, or nil if no rule matches
     func infer(text: String, rules: [Rule]) async throws -> Rule? {
@@ -100,61 +98,62 @@ actor MLXWorker {
             return nil
         }
         
+        // Load model if not loaded
         if !isModelLoaded {
-            logger.warning("Model not loaded, attempting to load...")
+            logger.info("Model not loaded, loading now...")
             try await loadModel()
+        }
+        
+        guard let session = chatSession else {
+            throw MLXError.sessionNotInitialized
         }
         
         // Build the prompt
         let prompt = PromptBuilder.buildPrompt(
             rules: rules,
-            fileName: "", // We don't have filename here, it's embedded in the extracted text context
+            fileName: "",
             extractedText: text
         )
         
-        logger.debug("Running inference with \(rules.count) rules, prompt length: \(prompt.count)")
+        logger.debug("Running inference with \(rules.count) rules")
         
-        // TODO: Uncomment when MLXLLM package is added
-        /*
-        guard let session = chatSession as? ChatSession else {
-            throw MLXError.sessionNotInitialized
+        do {
+            // Run inference
+            let response = try await session.respond(to: prompt)
+            
+            logger.debug("LLM response: \(response)")
+            
+            // Parse the response to get rule index
+            if let ruleIndex = PromptBuilder.parseResponse(response, rulesCount: rules.count) {
+                let matchedRule = rules[ruleIndex]
+                logger.info("✅ Matched rule \(ruleIndex + 1): '\(matchedRule.naturalPrompt)'")
+                return matchedRule
+            }
+            
+            logger.info("No rule matched by LLM")
+            return nil
+            
+        } catch {
+            logger.error("Inference failed: \(error.localizedDescription)")
+            
+            // Fallback to mock inference if LLM fails
+            logger.warning("Falling back to keyword matching")
+            return mockInference(text: text, rules: rules)
         }
-        
-        // Use system prompt for context
-        let response = try await session.respond(
-            to: prompt,
-            systemPrompt: PromptBuilder.systemPrompt
-        )
-        
-        // Parse the response to get rule index
-        if let ruleIndex = PromptBuilder.parseResponse(response, rulesCount: rules.count) {
-            let matchedRule = rules[ruleIndex]
-            logger.info("Matched rule: \(matchedRule.naturalPrompt)")
-            return matchedRule
-        }
-        
-        logger.debug("No rule matched")
-        return nil
-        */
-        
-        // Temporary: Mock inference - randomly match or not
-        // This allows testing the full pipeline without the actual model
-        return mockInference(text: text, rules: rules)
     }
     
-    // MARK: - Mock Implementation (for testing without MLX)
+    // MARK: - Fallback Mock Implementation
     
     /// Mock inference that uses simple keyword matching.
-    /// Replace with real MLX inference when the package is integrated.
+    /// Used as fallback when LLM inference fails.
     private func mockInference(text: String, rules: [Rule]) -> Rule? {
         let lowercasedText = text.lowercased()
         
-        logger.debug("Mock inference analyzing text (\(lowercasedText.prefix(100))...)")
+        logger.debug("Mock inference analyzing text")
         
         // Try each rule in priority order
         for rule in rules {
             let keywords = extractKeywords(from: rule.naturalPrompt)
-            logger.debug("Rule '\(rule.naturalPrompt)' keywords: \(keywords)")
             
             // Check each keyword
             var matchedKeywords: [String] = []
@@ -164,9 +163,9 @@ actor MLXWorker {
                 }
             }
             
-            // Match if at least one keyword found (more lenient for testing)
+            // Match if at least one keyword found
             if !matchedKeywords.isEmpty {
-                logger.info("Mock inference matched rule: '\(rule.naturalPrompt)' with keywords: \(matchedKeywords)")
+                logger.info("Mock matched rule: '\(rule.naturalPrompt)' with keywords: \(matchedKeywords)")
                 return rule
             }
         }
@@ -177,10 +176,9 @@ actor MLXWorker {
     
     /// Extracts simple keywords from a rule prompt for mock matching.
     private func extractKeywords(from prompt: String) -> [String] {
-        // Common stop words to ignore
         let stopWords = Set([
-            "the", "a", "an", "and", "or", "to", "for", "of", "in", "on", "at", 
-            "is", "are", "that", "this", "with", "files", "file", "move", "put", 
+            "the", "a", "an", "and", "or", "to", "for", "of", "in", "on", "at",
+            "is", "are", "that", "this", "with", "files", "file", "move", "put",
             "all", "any", "my", "into", "folder", "should", "go", "be", "como",
             "los", "las", "que", "con", "por", "para", "del", "una", "uno"
         ])
