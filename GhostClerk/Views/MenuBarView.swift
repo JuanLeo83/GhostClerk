@@ -233,6 +233,27 @@ struct MenuBarView: View {
             }
             .buttonStyle(MenuButtonStyle())
             
+            // Undo button (only if there's an undoable action)
+            if let lastAction = appState.lastUndoableAction {
+                Button {
+                    appState.undoLastMove()
+                } label: {
+                    HStack {
+                        Label("Undo", systemImage: "arrow.uturn.backward")
+                        Spacer()
+                        Text(lastAction.fileName.count > 12 ? String(lastAction.fileName.prefix(12)) + "..." : lastAction.fileName)
+                            .font(.caption)
+                            .foregroundColor(.secondary)
+                            .lineLimit(1)
+                        Text("⌘Z")
+                            .font(.caption)
+                            .foregroundColor(.secondary)
+                    }
+                }
+                .buttonStyle(MenuButtonStyle())
+                .keyboardShortcut("z", modifiers: .command)
+            }
+            
             Divider()
             
             // Settings & Quit

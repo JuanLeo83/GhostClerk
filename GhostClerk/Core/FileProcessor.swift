@@ -340,13 +340,16 @@ final class FileProcessor: @unchecked Sendable {
                 // Move file to rule's target folder
                 logger.info("Rule matched: '\(matchedRule.naturalPrompt)' -> \(matchedRule.targetPath)")
                 
-                if await ClerkFileManager.shared.moveFileAsync(url, toRuleDestination: matchedRule) != nil {
+                let sourcePath = url.path
+                if let destinationURL = await ClerkFileManager.shared.moveFileAsync(url, toRuleDestination: matchedRule) {
                     logActivity(
                         fileName: fileName,
                         action: .moved,
                         status: .success,
                         matchedRuleId: matchedRule.id,
-                        details: "Moved to \(matchedRule.targetPath)"
+                        details: "Moved to \(matchedRule.targetPath)",
+                        sourcePath: sourcePath,
+                        destinationPath: destinationURL.path
                     )
                     
                     // Send notification
@@ -365,12 +368,15 @@ final class FileProcessor: @unchecked Sendable {
                 // No rule matched - move to Review Tray
                 logger.info("No rule matched for: \(fileName), moving to Review Tray")
                 
-                if ClerkFileManager.shared.moveToReviewTray(url) != nil {
+                let sourcePath = url.path
+                if let destinationURL = ClerkFileManager.shared.moveToReviewTray(url) {
                     logActivity(
                         fileName: fileName,
                         action: .reviewTray,
                         status: .success,
-                        details: "No matching rule"
+                        details: "No matching rule",
+                        sourcePath: sourcePath,
+                        destinationPath: destinationURL.path
                     )
                     
                     // Send notification
@@ -402,14 +408,18 @@ final class FileProcessor: @unchecked Sendable {
         action: ActionType,
         status: ActionStatus,
         matchedRuleId: UUID? = nil,
-        details: String? = nil
+        details: String? = nil,
+        sourcePath: String? = nil,
+        destinationPath: String? = nil
     ) {
         let log = ActivityLog(
             fileName: fileName,
             action: action,
             status: status,
             matchedRuleId: matchedRuleId,
-            details: details
+            details: details,
+            sourcePath: sourcePath,
+            destinationPath: destinationPath
         )
         
         onActivityLogged?(log)

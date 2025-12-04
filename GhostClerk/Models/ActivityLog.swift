@@ -30,6 +30,12 @@ struct ActivityLog: Codable, Identifiable {
     /// Optional: Additional details or error message
     let details: String?
     
+    /// Optional: Original file path before move (for undo)
+    let sourcePath: String?
+    
+    /// Optional: Destination file path after move (for undo)
+    let destinationPath: String?
+    
     init(
         id: UUID = UUID(),
         timestamp: Date = Date(),
@@ -37,7 +43,9 @@ struct ActivityLog: Codable, Identifiable {
         action: ActionType,
         status: ActionStatus,
         matchedRuleId: UUID? = nil,
-        details: String? = nil
+        details: String? = nil,
+        sourcePath: String? = nil,
+        destinationPath: String? = nil
     ) {
         self.id = id
         self.timestamp = timestamp
@@ -46,6 +54,16 @@ struct ActivityLog: Codable, Identifiable {
         self.status = status
         self.matchedRuleId = matchedRuleId
         self.details = details
+        self.sourcePath = sourcePath
+        self.destinationPath = destinationPath
+    }
+    
+    /// Whether this action can be undone
+    var canUndo: Bool {
+        return (action == .moved || action == .reviewTray) 
+            && status == .success 
+            && sourcePath != nil 
+            && destinationPath != nil
     }
 }
 

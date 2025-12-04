@@ -123,7 +123,10 @@ final class AppState: ObservableObject {
             object: nil,
             queue: .main
         ) { [weak self] _ in
-            self?.openReviewTray()
+            guard let self = self else { return }
+            Task { @MainActor in
+                self.openReviewTray()
+            }
         }
     }
     
@@ -155,8 +158,9 @@ final class AppState: ObservableObject {
     private func setupReviewTrayTimer() {
         // Refresh review tray count every 5 seconds
         reviewTrayTimer = Timer.scheduledTimer(withTimeInterval: 5.0, repeats: true) { [weak self] _ in
+            guard let self = self else { return }
             Task { @MainActor in
-                self?.refreshReviewTrayCount()
+                self.refreshReviewTrayCount()
             }
         }
     }
@@ -306,6 +310,98 @@ final class AppState: ObservableObject {
         Task { @MainActor in
             try? await Task.sleep(for: .seconds(2))
             self.refreshReviewTrayCount()
+        }
+    }
+    
+    // MARK: - Undo
+    
+    /// Returns the last undoable action, if any
+    var lastUndoableAction: ActivityLog? {
+        recentLogs.reversed().first { $0.canUndo }
+    }
+    
+    /// Undoes the last file move action
+    func undoLastMove() {
+        guard let lastAction = lastUndoableAction,
+              let sourcePath = lastAction.sourcePath,
+              let destinationPath = lastAction.destinationPath else {
+            logger.warning("No undoable action found")
+            return
+        }
+        
+        let fileManager = FileManager.default
+        let destinationURL = URL(fileURLWithPath: destinationPath)
+        
+        // Check if file still exists at destination
+        guard fileManager.fileExists(atPath: destinationPath) else {
+            logger.warning("Cannot undo: file no longer exists at \(destinationPath)")
+            return
+        }
+        
+        // Build the REAL user Downloads path manually
+        // FileManager.urls(for: .downloadsDirectory) returns sandbox path, not real path
+        // We use /Users/<username>/Downloads directly
+        let fileName = URL(fileURLWithPath: sourcePath).lastPathComponent
+        let realDownloadsPath: String
+        
+        if sourcePath.contains("/Downloads/") {
+            // Extract the real user path from the original source path
+            // sourcePath should be like "/Users/juanleo/Downloads/file.txt"
+            if let range = sourcePath.range(of: "/Downloads/") {
+                let userPath = String(sourcePath[..<range.lowerBound])
+                realDownloadsPath = userPath + "/Downloads/" + fileName
+            } else {
+                // Fallback: construct from username
+                let username = NSUserName()
+                realDownloadsPath = "/Users/\(username)/Downloads/\(fileName)"
+            }
+        } else {
+            // Not Downloads, use original path
+            realDownloadsPath = sourcePath
+        }
+        
+        let realSourceURL = URL(fileURLWithPath: realDownloadsPath)
+        
+        logger.info("Attempting undo: \(destinationPath) -> \(realDownloadsPath)")
+        
+        Task { [weak self] in
+            guard let self = self else { return }
+            
+            // Use shell command directly since we're dealing with paths outside sandbox
+            let process = Process()
+            process.executableURL = URL(fileURLWithPath: "/bin/mv")
+            process.arguments = [destinationPath, realDownloadsPath]
+            
+            let pipe = Pipe()
+            process.standardError = pipe
+            
+            do {
+                try process.run()
+                process.waitUntilExit()
+                
+                if process.terminationStatus == 0 {
+                    await MainActor.run {
+                        self.logger.info("✅ Undo successful: moved \(lastAction.fileName) back to Downloads")
+                        self.recentLogs.removeAll { $0.id == lastAction.id }
+                        self.refreshReviewTrayCount()
+                    }
+                    
+                    NotificationService.shared.notifyFileMoved(
+                        fileName: lastAction.fileName,
+                        destinationFolder: "Downloads (Undo)"
+                    )
+                } else {
+                    let errorData = pipe.fileHandleForReading.readDataToEndOfFile()
+                    let errorMessage = String(data: errorData, encoding: .utf8) ?? "Unknown error"
+                    await MainActor.run {
+                        self.logger.error("mv failed: \(errorMessage)")
+                    }
+                }
+            } catch {
+                await MainActor.run {
+                    self.logger.error("Undo failed: \(error.localizedDescription)")
+                }
+            }
         }
     }
 }

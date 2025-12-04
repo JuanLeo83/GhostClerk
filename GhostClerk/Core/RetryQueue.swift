@@ -139,7 +139,7 @@ actor RetryQueue {
                 logger.info("Retry successful for: \(url.lastPathComponent)")
             } else {
                 // Re-enqueue (will increment attempt count or remove if max exceeded)
-                await enqueue(url)
+                enqueue(url)
             }
         }
     }
