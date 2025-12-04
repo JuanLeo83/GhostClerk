@@ -97,4 +97,4 @@ Tareas opcionales para pulir la experiencia.
 ### Analytics & UX
 - [ ] **Statistics Dashboard**: Vista con estadísticas de archivos procesados, aciertos, tiempos de inferencia.
 - [ ] **Undo Last Action**: Botón para deshacer la última clasificación (mover archivo de vuelta).
-- [ ] **Notification Center**: Notificaciones nativas de macOS cuando se clasifica un archivo.
+- [x] **Notification Center**: Notificaciones nativas de macOS cuando se clasifica un archivo.

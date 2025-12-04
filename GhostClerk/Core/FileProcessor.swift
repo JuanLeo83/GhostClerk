@@ -348,6 +348,10 @@ final class FileProcessor: @unchecked Sendable {
                         matchedRuleId: matchedRule.id,
                         details: "Moved to \(matchedRule.targetPath)"
                     )
+                    
+                    // Send notification
+                    let folderName = URL(fileURLWithPath: matchedRule.targetPath).lastPathComponent
+                    NotificationService.shared.notifyFileMoved(fileName: fileName, destinationFolder: folderName)
                 } else {
                     logActivity(
                         fileName: fileName,
@@ -368,6 +372,9 @@ final class FileProcessor: @unchecked Sendable {
                         status: .success,
                         details: "No matching rule"
                     )
+                    
+                    // Send notification
+                    NotificationService.shared.notifyFileNeedsReview(fileName: fileName)
                 } else {
                     logActivity(
                         fileName: fileName,

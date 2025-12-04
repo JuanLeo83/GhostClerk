@@ -75,6 +75,13 @@ final class AppState: ObservableObject {
     /// Whether AI is enabled (false = use keyword fallback only, saves GPU resources)
     @AppStorage("aiEnabled") var aiEnabled: Bool = true
     
+    /// Whether to show notifications
+    @AppStorage("showNotifications") var showNotifications: Bool = true {
+        didSet {
+            NotificationService.shared.isEnabled = showNotifications
+        }
+    }
+    
     /// The folder monitor instance
     private var folderMonitor: FolderMonitor?
     
@@ -86,6 +93,7 @@ final class AppState: ObservableObject {
         setupFileProcessor()
         setupReviewTrayTimer()
         setupMLXWorkerCallback()
+        setupNotifications()
         refreshReviewTrayCount()
         Task {
             await loadData()
@@ -102,6 +110,20 @@ final class AppState: ObservableObject {
                     self?.modelLoadingState = state
                 }
             }
+        }
+    }
+    
+    private func setupNotifications() {
+        // Sync initial value
+        NotificationService.shared.isEnabled = showNotifications
+        
+        // Listen for Review Tray open requests from notifications
+        NotificationCenter.default.addObserver(
+            forName: .openReviewTray,
+            object: nil,
+            queue: .main
+        ) { [weak self] _ in
+            self?.openReviewTray()
         }
     }
     
