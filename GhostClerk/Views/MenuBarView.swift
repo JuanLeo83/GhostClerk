@@ -21,23 +21,18 @@ struct MenuBarView: View {
                 Divider()
             }
             
-            // Status Section
-            statusSection
+            // Quick Actions (most important - always at top)
+            actionSection
             
             Divider()
             
-            // Quick Actions
-            actionSection
+            // Status Info
+            statusSection
             
             Divider()
             
             // Recent Activity
             recentActivitySection
-            
-            Divider()
-            
-            // Footer
-            footerSection
         }
         .frame(width: 320)
     }
@@ -164,6 +159,7 @@ struct MenuBarView: View {
     
     private var actionSection: some View {
         VStack(spacing: 0) {
+            // Primary actions
             Button {
                 appState.toggleMonitoring()
             } label: {
@@ -180,8 +176,6 @@ struct MenuBarView: View {
                 Label("Scan Now", systemImage: "arrow.clockwise")
             }
             .buttonStyle(MenuButtonStyle())
-            
-            Divider()
             
             Button {
                 appState.openReviewTray()
@@ -201,6 +195,26 @@ struct MenuBarView: View {
                 }
             }
             .buttonStyle(MenuButtonStyle())
+            
+            Divider()
+            
+            // Settings & Quit
+            Button {
+                openSettings()
+                NSApplication.shared.activate(ignoringOtherApps: true)
+            } label: {
+                Label("Settings...", systemImage: "gear")
+            }
+            .buttonStyle(MenuButtonStyle())
+            .keyboardShortcut(",", modifiers: .command)
+            
+            Button {
+                NSApplication.shared.terminate(nil)
+            } label: {
+                Label("Quit Ghost Clerk", systemImage: "power")
+            }
+            .buttonStyle(MenuButtonStyle())
+            .keyboardShortcut("q", modifiers: .command)
         }
     }
     
@@ -230,32 +244,6 @@ struct MenuBarView: View {
             }
         }
         .padding(.bottom, 8)
-    }
-    
-    // MARK: - Footer Section
-    
-    private var footerSection: some View {
-        VStack(spacing: 0) {
-            Button {
-                openSettings()
-                // Bring the app and settings window to front
-                NSApplication.shared.activate(ignoringOtherApps: true)
-            } label: {
-                Label("Settings...", systemImage: "gear")
-            }
-            .buttonStyle(MenuButtonStyle())
-            .keyboardShortcut(",", modifiers: .command)
-            
-            Divider()
-            
-            Button {
-                NSApplication.shared.terminate(nil)
-            } label: {
-                Label("Quit Ghost Clerk", systemImage: "power")
-            }
-            .buttonStyle(MenuButtonStyle())
-            .keyboardShortcut("q", modifiers: .command)
-        }
     }
     
     // MARK: - Helpers
