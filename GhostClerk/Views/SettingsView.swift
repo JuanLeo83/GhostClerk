@@ -21,6 +21,12 @@ struct SettingsView: View {
                     Label("Rules", systemImage: "list.bullet.rectangle")
                 }
             
+            StatisticsView()
+                .environmentObject(appState)
+                .tabItem {
+                    Label("Statistics", systemImage: "chart.bar.fill")
+                }
+            
             GeneralSettingsView()
                 .environmentObject(appState)
                 .tabItem {
@@ -32,7 +38,7 @@ struct SettingsView: View {
                     Label("About", systemImage: "info.circle")
                 }
         }
-        .frame(width: 500, height: 400)
+        .frame(width: 550, height: 450)
     }
 }
 

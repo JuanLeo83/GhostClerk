@@ -95,6 +95,6 @@ Tareas opcionales para pulir la experiencia.
 - [ ] **Prompt Tuning**: UI para personalizar el prompt del sistema que se envía al LLM.
 
 ### Analytics & UX
-- [ ] **Statistics Dashboard**: Vista con estadísticas de archivos procesados, aciertos, tiempos de inferencia.
+- [x] **Statistics Dashboard**: Vista con estadísticas de archivos procesados, aciertos, tiempos de inferencia.
 - [x] **Undo Last Action**: Botón para deshacer la última clasificación (mover archivo de vuelta).
 - [x] **Notification Center**: Notificaciones nativas de macOS cuando se clasifica un archivo.
