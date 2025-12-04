@@ -2,7 +2,11 @@
 
 Your intelligent, private file organizer for macOS.
 
-![Banner](docs/images/banner_placeholder.png)
+![Banner](docs/images/banner.png)
+
+<p align="center">
+  <img src="docs/images/mockup.png" width="600" alt="GhostClerk Mockup">
+</p>
 
 GhostClerk quietly lives in your menu bar and uses powerful on-device AI to automatically sort, rename, and organize your files. No cloud. No subscriptions. Just local productivity.
 
@@ -16,6 +20,12 @@ GhostClerk quietly lives in your menu bar and uses powerful on-device AI to auto
 - OCR-powered classification — reads text inside images and PDFs.
 - Optimized for Apple Silicon — fast, efficient on M1/M2/M3.
 - Unobtrusive — menu bar agent with no Dock icon.
+
+## Screenshots
+
+| Menu Bar | Settings - Rules | Settings - Statistics |
+|----------|------------------|----------------------|
+| <img src="docs/images/menubar.png" width="300" alt="Menu Bar"> | <img src="docs/images/rules.png" width="300" alt="Settings - Rules"> | <img src="docs/images/statistics.png" width="300" alt="Settings - Statistics"> |
 
 ## Requirements
 - macOS 14 (Sonoma) or later
@@ -38,12 +48,6 @@ open GhostClerk.xcodeproj
 Notes:
 - The app runs as a menu-bar agent (no Dock icon). See `GhostClerkApp.swift` and `GhostClerk/GhostClerk.entitlements`.
 - For folder access during development, check `FileSystem/BookmarkManager.swift` for `security-scoped bookmarks`.
-
-## Screenshots
-
-| Menu Bar | Settings |
-|----------|----------|
-| ![Menu Bar](docs/images/menubar_placeholder.png) | ![Settings](docs/images/settings_placeholder.png) |
 
 ## Development notes
 - Follow conventions in `CONTRIBUTING.md`.
