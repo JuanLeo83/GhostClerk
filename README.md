@@ -1,46 +1,54 @@
-# GhostClerk
+# GhostClerk 👻
 
-GhostClerk is a macOS menu bar agent that organizes local files using on-device LLMs via MLX Swift. It targets macOS 14+ (Sonoma) and is implemented with SwiftUI, following MVVM and Swift Concurrency patterns (`async/await`).
+Your intelligent, private file organizer for macOS.
+
+![Banner](docs/images/banner_placeholder.png)
+
+GhostClerk quietly lives in your menu bar and uses powerful on-device AI to automatically sort, rename, and organize your files. No cloud. No subscriptions. Just local productivity.
 
 **Status:** In development
 
-**Relevant files:**
-- `spec.md` — Functional specification
-- `plan.md` — High-level plan
-- `task.md` — Development tasks and context
+**Relevant files:** `spec.md`, `plan.md`, `task.md`
 
-## Key goals
-- Organize local files (for example `~/Downloads`) using configurable rules and local LLMs.
-- Run as a background menu-bar agent (no Dock icon) using `MenuBarExtra` and `LSUIElement`.
-- Use `mlx-swift` for quantized GGUF models and `Vision` for OCR where needed.
+## Why GhostClerk?
+- Local intelligence with MLX Swift — your data never leaves your Mac.
+- Smart sorting beyond file extensions — understands content and context.
+- OCR-powered classification — reads text inside images and PDFs.
+- Optimized for Apple Silicon — fast, efficient on M1/M2/M3.
+- Unobtrusive — menu bar agent with no Dock icon.
 
 ## Requirements
 - macOS 14 (Sonoma) or later
 - Xcode 15+
 - Apple Silicon recommended for best performance with local models
 
-## Open & Run
+## Install me
+
+GhostClerk is currently in active development. Want to try it?
+
+### Developer install
 1. Open the project in Xcode:
 
 ```bash
 open GhostClerk.xcodeproj
 ```
 
-2. Select the `GhostClerk` scheme and run on your Mac (not a simulator).
+2. Select the `GhostClerk` scheme and run on your Mac (Target: My Mac).
 
 Notes:
-- The app runs as a menu-bar agent (no Dock icon). Inspect `GhostClerkApp.swift` and `GhostClerk/GhostClerk.entitlements` for related settings.
-- For development requiring folder access, see `FileSystem/BookmarkManager.swift` for the `security-scoped bookmarks` logic.
+- The app runs as a menu-bar agent (no Dock icon). See `GhostClerkApp.swift` and `GhostClerk/GhostClerk.entitlements`.
+- For folder access during development, check `FileSystem/BookmarkManager.swift` for `security-scoped bookmarks`.
 
-## Repository structure (short)
+## Screenshots
 
+| Menu Bar | Settings |
+|----------|----------|
+| ![Menu Bar](docs/images/menubar_placeholder.png) | ![Settings](docs/images/settings_placeholder.png) |
 
 ## Development notes
 - Follow conventions in `CONTRIBUTING.md`.
 - Prefer SwiftUI; use AppKit only when strictly necessary.
-
-
-- Run tests from Xcode or via `xcodebuild`.
+- Use `async/await` and `Task` for asynchronous work; avoid raw GCD unless required for low-level APIs.
 
 ## License
 This project is licensed under the MIT License (see `LICENSE`).
