@@ -38,26 +38,30 @@ actor MLXWorker {
         MLXModel(
             id: "mlx-community/Phi-3.5-mini-instruct-4bit",
             name: "Phi-3.5 Mini",
-            size: "~2.0 GB",
-            description: "Balanced speed and accuracy (recommended)"
+            size: "~2 GB",
+            shortDescription: "Recommended",
+            description: "Best balance of speed and accuracy"
         ),
         MLXModel(
             id: "mlx-community/Llama-3.2-1B-Instruct-4bit",
             name: "Llama 3.2 1B",
             size: "~0.7 GB",
-            description: "Fastest, smallest - good for simple rules"
+            shortDescription: "Fastest",
+            description: "Lightest model, ideal for simple rules"
         ),
         MLXModel(
             id: "mlx-community/Llama-3.2-3B-Instruct-4bit",
             name: "Llama 3.2 3B",
-            size: "~2.0 GB",
-            description: "Better reasoning than 1B"
+            size: "~2 GB",
+            shortDescription: "Better reasoning",
+            description: "More capable than 1B variant"
         ),
         MLXModel(
             id: "mlx-community/Qwen2.5-3B-Instruct-4bit",
             name: "Qwen 2.5 3B",
-            size: "~2.0 GB",
-            description: "Good multilingual support"
+            size: "~2 GB",
+            shortDescription: "Best multilingual",
+            description: "Excellent support for Spanish and other languages"
         )
     ]
     
@@ -82,6 +86,125 @@ actor MLXWorker {
         // Unload current model - will load new one on next inference
         unloadModel()
         logger.info("Model changed to: \(id)")
+    }
+    
+    // MARK: - Downloaded Models Tracking
+    
+    /// Key for storing downloaded model IDs
+    private static let downloadedModelsKey = "downloadedModelIds"
+    
+    /// Gets the set of downloaded model IDs
+    static var downloadedModelIds: Set<String> {
+        get {
+            let array = UserDefaults.standard.stringArray(forKey: downloadedModelsKey) ?? []
+            return Set(array)
+        }
+        set {
+            UserDefaults.standard.set(Array(newValue), forKey: downloadedModelsKey)
+        }
+    }
+    
+    /// Syncs downloaded models tracking with actual files on disk
+    /// Call this on app launch or when Settings opens to ensure consistency
+    static func syncDownloadedModelsWithDisk() -> Set<String> {
+        guard let cacheDir = FileManager.default.urls(for: .cachesDirectory, in: .userDomainMask).first else {
+            return []
+        }
+        
+        let modelsDir = cacheDir
+            .appendingPathComponent("models")
+            .appendingPathComponent("mlx-community")
+        
+        guard FileManager.default.fileExists(atPath: modelsDir.path) else {
+            downloadedModelIds = []
+            return []
+        }
+        
+        var actuallyDownloaded = Set<String>()
+        
+        // Check each known model
+        for model in availableModels {
+            let modelFolderName = model.id.components(separatedBy: "/").last ?? model.id
+            let modelPath = modelsDir.appendingPathComponent(modelFolderName)
+            
+            if FileManager.default.fileExists(atPath: modelPath.path) {
+                actuallyDownloaded.insert(model.id)
+            }
+        }
+        
+        // Update the stored set to match reality
+        downloadedModelIds = actuallyDownloaded
+        
+        return actuallyDownloaded
+    }
+    
+    /// Marks a model as downloaded
+    func markModelAsDownloaded(_ modelId: String) {
+        var downloaded = Self.downloadedModelIds
+        downloaded.insert(modelId)
+        Self.downloadedModelIds = downloaded
+        logger.info("Marked model as downloaded: \(modelId)")
+    }
+    
+    /// Checks if a model is downloaded
+    static func isModelDownloaded(_ modelId: String) -> Bool {
+        downloadedModelIds.contains(modelId)
+    }
+    
+    /// Deletes a specific model's cache (not the currently selected one)
+    func deleteModelCache(for modelIdToDelete: String) throws {
+        // Safety check: don't delete the currently selected/loaded model
+        if modelIdToDelete == modelId {
+            throw MLXError.cannotDeleteActiveModel
+        }
+        
+        // Get the model folder name from the ID (e.g., "mlx-community/Phi-3.5-mini-instruct-4bit" -> "Phi-3.5-mini-instruct-4bit")
+        let modelFolderName = modelIdToDelete.components(separatedBy: "/").last ?? modelIdToDelete
+        
+        // Find and delete the model folder
+        guard let cacheDir = FileManager.default.urls(for: .cachesDirectory, in: .userDomainMask).first else {
+            throw MLXError.modelDeleteFailed("Cannot access cache directory")
+        }
+        
+        // Model is stored in: ~/Library/Caches/models/mlx-community/<model-name>/
+        let modelPath = cacheDir
+            .appendingPathComponent("models")
+            .appendingPathComponent("mlx-community")
+            .appendingPathComponent(modelFolderName)
+        
+        if FileManager.default.fileExists(atPath: modelPath.path) {
+            // Calculate size before deletion for logging
+            let size = Self.directorySize(at: modelPath)
+            let formatter = ByteCountFormatter()
+            formatter.countStyle = .file
+            let sizeString = formatter.string(fromByteCount: size)
+            
+            try FileManager.default.removeItem(at: modelPath)
+            logger.info("✅ Deleted model \(modelFolderName) - freed \(sizeString)")
+        } else {
+            logger.warning("Model folder not found at: \(modelPath.path)")
+        }
+        
+        // Remove from downloaded set
+        var downloaded = Self.downloadedModelIds
+        downloaded.remove(modelIdToDelete)
+        Self.downloadedModelIds = downloaded
+    }
+    
+    /// Gets the actual size of a specific model on disk
+    func getModelDiskSize(for modelIdToCheck: String) -> Int64 {
+        let modelFolderName = modelIdToCheck.components(separatedBy: "/").last ?? modelIdToCheck
+        
+        guard let cacheDir = FileManager.default.urls(for: .cachesDirectory, in: .userDomainMask).first else {
+            return 0
+        }
+        
+        let modelPath = cacheDir
+            .appendingPathComponent("models")
+            .appendingPathComponent("mlx-community")
+            .appendingPathComponent(modelFolderName)
+        
+        return Self.directorySize(at: modelPath)
     }
     
     // MARK: - Properties
@@ -155,6 +278,10 @@ actor MLXWorker {
             
             isModelLoaded = true
             loadingState = .loaded
+            
+            // Mark this model as downloaded
+            markModelAsDownloaded(modelId)
+            
             logger.info("✅ Model loaded successfully: \(self.modelId)")
         } catch {
             loadingState = .failed(error: error.localizedDescription)
@@ -369,6 +496,8 @@ actor MLXWorker {
         case modelLoadFailed(String)
         case sessionNotInitialized
         case inferenceFailed(String)
+        case cannotDeleteActiveModel
+        case modelDeleteFailed(String)
         
         var errorDescription: String? {
             switch self {
@@ -378,6 +507,10 @@ actor MLXWorker {
                 return "Chat session not initialized"
             case .inferenceFailed(let reason):
                 return "Inference failed: \(reason)"
+            case .cannotDeleteActiveModel:
+                return "Cannot delete the currently active model"
+            case .modelDeleteFailed(let reason):
+                return "Failed to delete model: \(reason)"
             }
         }
     }
@@ -390,5 +523,11 @@ struct MLXModel: Identifiable, Equatable {
     let id: String
     let name: String
     let size: String
+    let shortDescription: String
     let description: String
+    
+    /// Formatted display name for picker: "Phi-3.5 Mini (~2 GB) - Recomendado"
+    var displayName: String {
+        "\(name) (\(size)) - \(shortDescription)"
+    }
 }

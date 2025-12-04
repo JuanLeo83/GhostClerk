@@ -279,7 +279,10 @@ struct GeneralSettingsView: View {
     @State private var customPrompt: String = ""
     @State private var isUsingCustomPrompt = false
     @AppStorage("retryWithLLM") private var retryWithLLM = true
-    @State private var selectedModelId: String = MLXWorker.defaultModelId
+    @AppStorage("selectedModelId") private var selectedModelId: String = MLXWorker.defaultModelId
+    @State private var modelToDelete: MLXModel? = nil
+    @State private var modelToDeleteSize: Int64 = 0
+    @State private var downloadedModels: Set<String> = []
     
     var body: some View {
         Form {
@@ -309,54 +312,76 @@ struct GeneralSettingsView: View {
                 Divider()
                 
                 // Model selection
-                HStack {
+                VStack(alignment: .leading, spacing: 8) {
                     Text("Model:")
-                    Spacer()
-                    Picker("", selection: $selectedModelId) {
-                        ForEach(MLXWorker.availableModels) { model in
-                            Text("\(model.name) (\(model.size))")
-                                .tag(model.id)
+                        .fontWeight(.medium)
+                    
+                    ForEach(MLXWorker.availableModels) { model in
+                        HStack(spacing: 12) {
+                            // Selection radio button
+                            Image(systemName: selectedModelId == model.id ? "largecircle.fill.circle" : "circle")
+                                .foregroundColor(selectedModelId == model.id ? .accentColor : .secondary)
+                                .font(.title3)
+                            
+                            // Model info
+                            VStack(alignment: .leading, spacing: 2) {
+                                HStack(spacing: 6) {
+                                    Text(model.name)
+                                        .fontWeight(selectedModelId == model.id ? .semibold : .regular)
+                                    
+                                    Text("(\(model.size))")
+                                        .foregroundColor(.secondary)
+                                    
+                                    Text("– \(model.shortDescription)")
+                                        .foregroundColor(.secondary)
+                                }
+                                
+                                if selectedModelId == model.id {
+                                    Text(model.description)
+                                        .font(.caption)
+                                        .foregroundColor(.secondary)
+                                }
+                            }
+                            
+                            Spacer()
+                            
+                            // Delete button - ONLY for downloaded models that are NOT selected
+                            if downloadedModels.contains(model.id) && selectedModelId != model.id {
+                                Button {
+                                    modelToDelete = model
+                                    // Get actual size from disk
+                                    Task {
+                                        let size = await MLXWorker.shared.getModelDiskSize(for: model.id)
+                                        await MainActor.run {
+                                            modelToDeleteSize = size
+                                            showDeleteConfirmation = true
+                                        }
+                                    }
+                                } label: {
+                                    Image(systemName: "trash")
+                                        .foregroundColor(.red)
+                                }
+                                .buttonStyle(.plain)
+                                .help("Delete downloaded model")
+                            }
+                        }
+                        .padding(.vertical, 4)
+                        .contentShape(Rectangle())
+                        .onTapGesture {
+                            if selectedModelId != model.id {
+                                selectModel(model.id)
+                            }
                         }
                     }
-                    .pickerStyle(.menu)
-                    .frame(maxWidth: 200)
                 }
                 
-                if let model = MLXWorker.availableModels.first(where: { $0.id == selectedModelId }) {
-                    Text(model.description)
-                        .font(.caption)
-                        .foregroundColor(.secondary)
-                }
+                Divider()
                 
                 // Model status
                 HStack {
                     Text("Status:")
                     Spacer()
                     modelStatusText
-                }
-                
-                // Cache size
-                HStack {
-                    Text("Cache Size:")
-                    Spacer()
-                    Text(formatBytes(modelCacheSize))
-                        .foregroundColor(.secondary)
-                }
-                
-                // Delete model button
-                if modelCacheSize > 0 {
-                    Button(role: .destructive) {
-                        showDeleteConfirmation = true
-                    } label: {
-                        HStack {
-                            if isDeleting {
-                                ProgressView()
-                                    .scaleEffect(0.7)
-                            }
-                            Text(isDeleting ? "Deleting..." : "Delete Downloaded Model")
-                        }
-                    }
-                    .disabled(isDeleting)
                 }
             }
             
@@ -412,13 +437,8 @@ struct GeneralSettingsView: View {
         .onAppear {
             refreshCacheSize()
             isUsingCustomPrompt = PromptBuilder.isUsingCustomPrompt
-            selectedModelId = UserDefaults.standard.string(forKey: "selectedModelId") ?? MLXWorker.defaultModelId
-        }
-        .onChange(of: selectedModelId) { _, newValue in
-            Task {
-                await MLXWorker.shared.selectModel(newValue)
-                refreshCacheSize()
-            }
+            // Sync with disk to ensure we show accurate download state
+            downloadedModels = MLXWorker.syncDownloadedModelsWithDisk()
         }
         .sheet(isPresented: $showPromptEditor) {
             PromptEditorSheet(
@@ -431,16 +451,23 @@ struct GeneralSettingsView: View {
             )
         }
         .confirmationDialog(
-            "Delete Model Cache?",
+            "Delete \(modelToDelete?.name ?? "Model")?",
             isPresented: $showDeleteConfirmation,
             titleVisibility: .visible
         ) {
             Button("Delete", role: .destructive) {
-                deleteModelCache()
+                if let model = modelToDelete {
+                    deleteSpecificModel(model.id)
+                }
+                modelToDelete = nil
+                modelToDeleteSize = 0
             }
-            Button("Cancel", role: .cancel) {}
+            Button("Cancel", role: .cancel) {
+                modelToDelete = nil
+                modelToDeleteSize = 0
+            }
         } message: {
-            Text("This will delete the downloaded AI model (\(formatBytes(modelCacheSize))). You'll need to re-download it when AI is used again.")
+            Text("This will free up \(formatBytes(modelToDeleteSize)). You'll need to re-download it to use this model again.")
         }
     }
     
@@ -473,6 +500,28 @@ struct GeneralSettingsView: View {
             let size = await MLXWorker.shared.getModelCacheSize()
             await MainActor.run {
                 modelCacheSize = size
+            }
+        }
+    }
+    
+    private func selectModel(_ modelId: String) {
+        Task {
+            await MLXWorker.shared.selectModel(modelId)
+            // Trigger model download/load
+            try? await MLXWorker.shared.loadModel()
+            await MainActor.run {
+                downloadedModels = MLXWorker.downloadedModelIds
+                refreshCacheSize()
+            }
+        }
+    }
+    
+    private func deleteSpecificModel(_ modelId: String) {
+        Task {
+            try? await MLXWorker.shared.deleteModelCache(for: modelId)
+            await MainActor.run {
+                downloadedModels = MLXWorker.downloadedModelIds
+                refreshCacheSize()
             }
         }
     }
