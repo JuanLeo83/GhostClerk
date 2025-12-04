@@ -74,3 +74,16 @@ Disaster prevention.
 
 - [x] **Trash Logic**: Implemented in `Services/FileSystem/ClerkFileManager.swift`.
     - Any duplicate file deletion moves to `~/.ghost_clerk_trash` with timestamp.
+
+---
+
+## Extra: Mejoras Futuras
+
+Tareas opcionales para pulir la experiencia.
+
+- [x] **Wait for Model**: Añadir opción para esperar a que el modelo LLM cargue antes de procesar archivos. Evita clasificaciones "tontas" del fallback keyword durante la carga inicial (~30s).
+- [x] **Loading Indicator**: Mostrar en el menú un estado "Cargando modelo..." mientras MLX descarga/inicializa.
+- [ ] **Retry with LLM**: Cuando el modelo termine de cargar, re-procesar archivos que fueron clasificados por fallback.
+- [ ] **Model Selection**: Permitir al usuario elegir entre diferentes modelos (Phi-3.5, Llama 3.2, etc.) en Settings.
+- [ ] **Prompt Tuning**: UI para personalizar el prompt del sistema que se envía al LLM.
+- [ ] **Statistics Dashboard**: Vista con estadísticas de archivos procesados, aciertos, tiempos de inferencia.

@@ -54,6 +54,9 @@ final class FileProcessor: @unchecked Sendable {
     /// Active rules for file classification (set from AppState)
     var activeRules: [Rule] = []
     
+    /// Whether to wait for model before processing (set from AppState)
+    var waitForModel: Bool = true
+    
     /// Returns the real Downloads folder URL (not sandbox container)
     private static var realDownloadsURL: URL {
         let homeDir = FileManager.default.homeDirectoryForCurrentUser
@@ -277,6 +280,18 @@ final class FileProcessor: @unchecked Sendable {
     /// Processes a file with AI inference and moves it accordingly.
     private func processFileWithAI(url: URL, rules: [Rule]) async {
         let fileName = url.lastPathComponent
+        
+        // If waitForModel is enabled and model is loading, wait for it
+        if waitForModel {
+            let modelReady = await MLXWorker.shared.loadingState.isReady
+            if !modelReady {
+                logger.info("Waiting for model to load before processing: \(fileName)")
+                let loaded = await MLXWorker.shared.waitForModelReady(timeout: 120)
+                if !loaded {
+                    logger.warning("Model load timeout, proceeding with fallback for: \(fileName)")
+                }
+            }
+        }
         
         // Extract text content if supported
         var extractedText: String?

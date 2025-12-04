@@ -141,6 +141,9 @@ struct MenuBarView: View {
                 .font(.caption)
                 .foregroundColor(.secondary)
             
+            // Model loading status
+            modelStatusView
+            
             if let lastChange = appState.lastChangeDetected {
                 Text("Last change: \(lastChange.formatted(.relative(presentation: .named)))")
                     .font(.caption2)
@@ -153,6 +156,40 @@ struct MenuBarView: View {
         }
         .padding(.horizontal, 12)
         .padding(.vertical, 8)
+    }
+    
+    /// Shows the current model loading state
+    @ViewBuilder
+    private var modelStatusView: some View {
+        switch appState.modelLoadingState {
+        case .idle:
+            EmptyView()
+        case .loading(let progress):
+            HStack(spacing: 4) {
+                ProgressView()
+                    .scaleEffect(0.6)
+                    .frame(width: 12, height: 12)
+                Text(progress)
+                    .font(.caption2)
+                    .foregroundColor(.orange)
+            }
+        case .loaded:
+            HStack(spacing: 4) {
+                Image(systemName: "brain")
+                    .font(.caption2)
+                Text("AI Ready")
+                    .font(.caption2)
+                    .foregroundColor(.green)
+            }
+        case .failed(let error):
+            HStack(spacing: 4) {
+                Image(systemName: "exclamationmark.triangle")
+                    .font(.caption2)
+                Text("AI: \(error.prefix(20))...")
+                    .font(.caption2)
+                    .foregroundColor(.red)
+            }
+        }
     }
     
     // MARK: - Action Section

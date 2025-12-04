@@ -239,11 +239,19 @@ struct GeneralSettingsView: View {
     
     @AppStorage("launchAtLogin") private var launchAtLogin = false
     @AppStorage("showNotifications") private var showNotifications = true
+    @AppStorage("waitForModel") private var waitForModel = true
     
     var body: some View {
         Form {
             Toggle("Launch at Login", isOn: $launchAtLogin)
             Toggle("Show Notifications", isOn: $showNotifications)
+            
+            Section("AI Model") {
+                Toggle("Wait for model before classifying", isOn: $waitForModel)
+                Text("When enabled, files wait for the AI model to load before being classified. This prevents fallback keyword matching during startup.")
+                    .font(.caption)
+                    .foregroundColor(.secondary)
+            }
             
             Section("Watched Folder") {
                 HStack {

@@ -66,6 +66,12 @@ final class AppState: ObservableObject {
     /// Number of files pending review (triggers badge update)
     @Published var reviewTrayCount: Int = 0
     
+    /// Current state of the MLX model loading
+    @Published var modelLoadingState: ModelLoadingState = .idle
+    
+    /// Whether to wait for model before processing files (user preference)
+    @AppStorage("waitForModel") var waitForModel: Bool = true
+    
     /// The folder monitor instance
     private var folderMonitor: FolderMonitor?
     
@@ -76,13 +82,33 @@ final class AppState: ObservableObject {
         setupFolderMonitor()
         setupFileProcessor()
         setupReviewTrayTimer()
+        setupMLXWorkerCallback()
         refreshReviewTrayCount()
         Task {
             await loadData()
+            await preloadModel()
         }
     }
     
     // MARK: - Setup
+    
+    private func setupMLXWorkerCallback() {
+        Task {
+            await MLXWorker.shared.setStateCallback { [weak self] state in
+                self?.modelLoadingState = state
+            }
+        }
+    }
+    
+    /// Preloads the model in background
+    private func preloadModel() async {
+        logger.info("Preloading MLX model...")
+        do {
+            try await MLXWorker.shared.loadModel()
+        } catch {
+            logger.warning("Model preload failed: \(error.localizedDescription)")
+        }
+    }
     
     private func setupFolderMonitor() {
         folderMonitor = FolderMonitor(url: FolderMonitor.defaultDownloadsURL)
@@ -113,9 +139,10 @@ final class AppState: ObservableObject {
         reviewTrayCount = ClerkFileManager.shared.reviewTrayCount()
     }
     
-    /// Updates FileProcessor with current rules
+    /// Updates FileProcessor with current rules and settings
     private func syncRulesToProcessor() {
         FileProcessor.shared.activeRules = rules.filter { $0.isEnabled }
+        FileProcessor.shared.waitForModel = waitForModel
     }
     
     // MARK: - Data Loading

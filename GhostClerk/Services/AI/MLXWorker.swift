@@ -10,6 +10,19 @@ import os.log
 import MLXLLM
 import MLXLMCommon
 
+/// Model loading state for UI updates
+enum ModelLoadingState: Equatable {
+    case idle
+    case loading(progress: String)
+    case loaded
+    case failed(error: String)
+    
+    var isReady: Bool {
+        if case .loaded = self { return true }
+        return false
+    }
+}
+
 /// Service responsible for running local LLM inference using MLX.
 /// Uses a small, quantized model optimized for Apple Silicon.
 actor MLXWorker {
@@ -29,6 +42,27 @@ actor MLXWorker {
     // MARK: - Properties
     
     private let logger = Logger(subsystem: "com.juanleodev.GhostClerk", category: "MLXWorker")
+    
+    /// Callback to notify state changes (for UI updates)
+    private var onStateChangeCallback: ((ModelLoadingState) -> Void)?
+    
+    /// Sets the callback for state changes (called from MainActor)
+    func setStateCallback(_ callback: @escaping (ModelLoadingState) -> Void) {
+        onStateChangeCallback = callback
+        // Immediately notify current state
+        callback(loadingState)
+    }
+    
+    /// Current loading state
+    private(set) var loadingState: ModelLoadingState = .idle {
+        didSet {
+            let state = loadingState
+            let callback = onStateChangeCallback
+            Task { @MainActor in
+                callback?(state)
+            }
+        }
+    }
     
     /// Whether the model is currently loaded
     private(set) var isModelLoaded = false
@@ -57,11 +91,14 @@ actor MLXWorker {
         }
         
         isLoading = true
+        loadingState = .loading(progress: "Downloading model...")
         defer { isLoading = false }
         
         logger.info("Loading MLX model: \(self.modelId)")
         
         do {
+            loadingState = .loading(progress: "Loading \(modelId.components(separatedBy: "/").last ?? "model")...")
+            
             // Load the model from Hugging Face using the simplified API
             let loadedModel = try await MLXLMCommon.loadModel(id: modelId)
             
@@ -72,8 +109,10 @@ actor MLXWorker {
             chatSession = ChatSession(loadedModel)
             
             isModelLoaded = true
+            loadingState = .loaded
             logger.info("✅ Model loaded successfully: \(self.modelId)")
         } catch {
+            loadingState = .failed(error: error.localizedDescription)
             logger.error("❌ Failed to load model: \(error.localizedDescription)")
             throw MLXError.modelLoadFailed(error.localizedDescription)
         }
@@ -84,7 +123,27 @@ actor MLXWorker {
         modelContext = nil
         chatSession = nil
         isModelLoaded = false
+        loadingState = .idle
         logger.info("Model unloaded")
+    }
+    
+    /// Waits for the model to finish loading (with timeout).
+    /// Returns true if model loaded successfully, false otherwise.
+    func waitForModelReady(timeout: TimeInterval = 120) async -> Bool {
+        let startTime = Date()
+        
+        while Date().timeIntervalSince(startTime) < timeout {
+            if isModelLoaded {
+                return true
+            }
+            if case .failed = loadingState {
+                return false
+            }
+            try? await Task.sleep(for: .milliseconds(500))
+        }
+        
+        logger.warning("Model loading timed out after \(timeout)s")
+        return false
     }
     
     /// Performs inference to match file content against rules.
