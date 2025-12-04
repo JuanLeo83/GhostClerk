@@ -90,8 +90,8 @@ Tareas opcionales para pulir la experiencia.
 - [ ] **Retry with LLM**: Cuando el modelo termine de cargar, re-procesar archivos que fueron clasificados por fallback.
 
 ### Reglas
-- [ ] **Rule Reordering (Drag & Drop)**: Permitir reordenar reglas arrastrando para establecer prioridad. La regla más arriba = mayor prioridad.
-- [ ] **Rule Priority Number**: Mostrar número de prioridad junto a cada regla (1, 2, 3...).
+- [x] **Rule Reordering (Drag & Drop)**: Permitir reordenar reglas arrastrando para establecer prioridad. La regla más arriba = mayor prioridad.
+- [x] **Rule Priority Number**: Mostrar número de prioridad junto a cada regla (1, 2, 3...).
 - [ ] **Prompt Tuning**: UI para personalizar el prompt del sistema que se envía al LLM.
 
 ### Analytics & UX

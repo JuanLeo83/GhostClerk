@@ -91,24 +91,38 @@ struct RulesSettingsView: View {
                         .frame(maxWidth: .infinity, alignment: .center)
                         .padding()
                 } else {
-                    List {
-                        ForEach(appState.rules) { rule in
-                            RuleRowView(
-                                rule: rule,
-                                onEdit: { newPrompt, newTargetPath in
-                                    Task {
-                                        await appState.updateRule(rule, prompt: newPrompt, targetPath: newTargetPath)
+                    VStack(alignment: .leading, spacing: 4) {
+                        Text("Drag to reorder • Higher = more priority")
+                            .font(.caption2)
+                            .foregroundColor(.secondary)
+                            .padding(.horizontal, 8)
+                            .padding(.top, 4)
+                        
+                        List {
+                            ForEach(Array(appState.rules.enumerated()), id: \.element.id) { index, rule in
+                                RuleRowView(
+                                    rule: rule,
+                                    priorityNumber: index + 1,
+                                    onEdit: { newPrompt, newTargetPath in
+                                        Task {
+                                            await appState.updateRule(rule, prompt: newPrompt, targetPath: newTargetPath)
+                                        }
+                                    },
+                                    onDelete: {
+                                        Task {
+                                            await appState.deleteRule(rule)
+                                        }
                                     }
-                                },
-                                onDelete: {
-                                    Task {
-                                        await appState.deleteRule(rule)
-                                    }
+                                )
+                            }
+                            .onMove { fromOffsets, toOffset in
+                                Task {
+                                    await appState.reorderRules(fromOffsets: fromOffsets, toOffset: toOffset)
                                 }
-                            )
+                            }
                         }
+                        .listStyle(.inset)
                     }
-                    .listStyle(.inset)
                 }
             }
             
@@ -135,6 +149,7 @@ struct RulesSettingsView: View {
 
 struct RuleRowView: View {
     let rule: Rule
+    let priorityNumber: Int
     let onEdit: (String, String) -> Void
     let onDelete: () -> Void
     
@@ -186,7 +201,14 @@ struct RuleRowView: View {
                 .padding(.vertical, 4)
             } else {
                 // Display mode
-                HStack {
+                HStack(spacing: 12) {
+                    // Priority badge
+                    Text("\(priorityNumber)")
+                        .font(.caption.bold())
+                        .foregroundColor(.white)
+                        .frame(width: 24, height: 24)
+                        .background(Circle().fill(Color.accentColor))
+                    
                     VStack(alignment: .leading, spacing: 2) {
                         Text(rule.naturalPrompt)
                             .font(.body)

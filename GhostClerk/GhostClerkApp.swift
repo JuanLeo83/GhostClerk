@@ -95,7 +95,9 @@ final class AppState: ObservableObject {
     private func setupMLXWorkerCallback() {
         Task {
             await MLXWorker.shared.setStateCallback { [weak self] state in
-                self?.modelLoadingState = state
+                Task { @MainActor in
+                    self?.modelLoadingState = state
+                }
             }
         }
     }
@@ -149,7 +151,8 @@ final class AppState: ObservableObject {
     
     private func loadData() async {
         do {
-            rules = try await StorageService.shared.loadRules()
+            let loadedRules = try await StorageService.shared.loadRules()
+            rules = loadedRules.sorted { $0.priority < $1.priority }
             recentLogs = try await StorageService.shared.loadLogs()
             syncRulesToProcessor()
             logger.info("Loaded \(self.rules.count) rules and \(self.recentLogs.count) logs")
@@ -254,6 +257,17 @@ final class AppState: ObservableObject {
             syncRulesToProcessor()
         } catch {
             logger.error("Failed to delete rule: \(error.localizedDescription)")
+        }
+    }
+    
+    /// Reorders rules by moving from one index to another (for drag & drop)
+    func reorderRules(fromOffsets: IndexSet, toOffset: Int) async {
+        do {
+            rules = try await StorageService.shared.reorderRules(fromOffsets: fromOffsets, toOffset: toOffset)
+            syncRulesToProcessor()
+            logger.info("Rules reordered successfully")
+        } catch {
+            logger.error("Failed to reorder rules: \(error.localizedDescription)")
         }
     }
     

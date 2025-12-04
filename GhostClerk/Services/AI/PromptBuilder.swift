@@ -8,7 +8,8 @@
 import Foundation
 
 /// Builds prompts for the LLM to classify files based on user-defined rules.
-enum PromptBuilder {
+/// This is a pure utility struct with no actor isolation.
+struct PromptBuilder {
     
     /// System prompt that defines the AI's role and behavior
     static let systemPrompt = """

@@ -98,9 +98,13 @@ actor StorageService {
     /// Adds a new rule and persists to storage
     func addRule(_ rule: Rule) async throws -> [Rule] {
         var rules = try await loadRules()
-        rules.append(rule)
+        // Set priority to be last (highest number = lowest priority)
+        var newRule = rule
+        let maxPriority = rules.map { $0.priority }.max() ?? -1
+        newRule.priority = maxPriority + 1
+        rules.append(newRule)
         try await saveRules(rules)
-        return rules
+        return rules.sorted { $0.priority < $1.priority }
     }
     
     /// Updates an existing rule by ID
@@ -111,13 +115,42 @@ actor StorageService {
         }
         rules[index] = rule
         try await saveRules(rules)
-        return rules
+        return rules.sorted { $0.priority < $1.priority }
     }
     
     /// Deletes a rule by ID
     func deleteRule(id: UUID) async throws -> [Rule] {
         var rules = try await loadRules()
         rules.removeAll { $0.id == id }
+        try await saveRules(rules)
+        return rules.sorted { $0.priority < $1.priority }
+    }
+    
+    /// Reorders rules by moving a rule from one index to another
+    func reorderRules(fromOffsets: IndexSet, toOffset: Int) async throws -> [Rule] {
+        var rules = try await loadRules()
+        rules.sort { $0.priority < $1.priority }
+        
+        // Manual implementation of move (SwiftUI's move is not available in Foundation)
+        let itemsToMove = fromOffsets.map { rules[$0] }
+        
+        // Remove items from original positions (in reverse order to preserve indices)
+        for index in fromOffsets.sorted().reversed() {
+            rules.remove(at: index)
+        }
+        
+        // Calculate adjusted destination index
+        let adjustedOffset = fromOffsets.filter { $0 < toOffset }.count
+        let insertionIndex = toOffset - adjustedOffset
+        
+        // Insert items at new position
+        rules.insert(contentsOf: itemsToMove, at: insertionIndex)
+        
+        // Reassign priorities based on new order
+        for (index, _) in rules.enumerated() {
+            rules[index].priority = index
+        }
+        
         try await saveRules(rules)
         return rules
     }
