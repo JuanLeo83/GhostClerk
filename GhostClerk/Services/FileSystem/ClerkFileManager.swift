@@ -70,8 +70,96 @@ final class ClerkFileManager: @unchecked Sendable {
         return moveFile(sourceURL, to: destinationFolder)
     }
     
-    /// Moves a file to a specific destination folder.
+    /// Moves a file to its destination based on a matched rule (async version).
+    /// Handles duplicates by renaming if necessary.
+    /// Uses security-scoped bookmarks for folders outside Downloads.
+    /// - Parameters:
+    ///   - sourceURL: The file to move
+    ///   - rule: The matched rule containing the target path
+    /// - Returns: The final destination URL, or nil if move failed
+    @discardableResult
+    func moveFileAsync(_ sourceURL: URL, toRuleDestination rule: Rule) async -> URL? {
+        let destinationFolder = URL(fileURLWithPath: rule.targetPath)
+        return await moveFileAsync(sourceURL, to: destinationFolder)
+    }
+    
+    /// Moves a file to a specific destination folder (async version).
     /// Handles duplicates by comparing hashes and renaming if necessary.
+    /// Uses security-scoped bookmarks for folders outside Downloads.
+    /// - Parameters:
+    ///   - sourceURL: The file to move
+    ///   - destinationFolder: The target folder
+    /// - Returns: The final destination URL, or nil if move failed
+    @discardableResult
+    func moveFileAsync(_ sourceURL: URL, to destinationFolder: URL) async -> URL? {
+        let fileName = sourceURL.lastPathComponent
+        var destinationURL = destinationFolder.appendingPathComponent(fileName)
+        
+        // Check if we need security-scoped access for this destination
+        let needsBookmark = !destinationFolder.path.hasPrefix(downloadsURL.path)
+        var accessedURL: URL? = nil
+        
+        if needsBookmark {
+            // Try to get access via bookmark
+            accessedURL = await BookmarkManager.shared.startAccessing(destinationFolder.path)
+            if accessedURL == nil {
+                logger.warning("No bookmark for \(destinationFolder.path) - trying direct access")
+            }
+        }
+        
+        // Use the accessed URL if available, otherwise try the original
+        let targetFolder = accessedURL ?? destinationFolder
+        
+        defer {
+            // Stop accessing the security-scoped resource when done
+            if let accessed = accessedURL {
+                Task {
+                    await BookmarkManager.shared.stopAccessing(accessed)
+                }
+            }
+        }
+        
+        // Ensure destination folder exists
+        do {
+            try fileManager.createDirectory(at: targetFolder, withIntermediateDirectories: true)
+        } catch {
+            logger.error("Failed to create destination folder: \(error.localizedDescription)")
+            return nil
+        }
+        
+        destinationURL = targetFolder.appendingPathComponent(fileName)
+        
+        // Check if file already exists at destination
+        if fileManager.fileExists(atPath: destinationURL.path) {
+            // Compare hashes
+            let sourceHash = FileHasher.sha256(of: sourceURL)
+            let destHash = FileHasher.sha256(of: destinationURL)
+            
+            if sourceHash == destHash && sourceHash != nil {
+                // Same file, delete the source (move to trash)
+                logger.info("Duplicate detected (same hash), removing source: \(fileName)")
+                moveToTrash(sourceURL)
+                return destinationURL
+            } else {
+                // Different content, rename
+                destinationURL = generateUniqueFileName(for: destinationURL)
+                logger.info("File exists with different content, renaming to: \(destinationURL.lastPathComponent)")
+            }
+        }
+        
+        // Perform the move
+        do {
+            try fileManager.moveItem(at: sourceURL, to: destinationURL)
+            logger.info("Moved \(fileName) to \(targetFolder.path)")
+            return destinationURL
+        } catch {
+            logger.error("Failed to move file: \(error.localizedDescription)")
+            return nil
+        }
+    }
+    
+    /// Moves a file to a specific destination folder (synchronous version).
+    /// Use this only for destinations that don't require security-scoped bookmarks (e.g., Downloads).
     /// - Parameters:
     ///   - sourceURL: The file to move
     ///   - destinationFolder: The target folder

@@ -308,7 +308,7 @@ final class FileProcessor: @unchecked Sendable {
                 // Move file to rule's target folder
                 logger.info("Rule matched: '\(matchedRule.naturalPrompt)' -> \(matchedRule.targetPath)")
                 
-                if ClerkFileManager.shared.moveFile(url, toRuleDestination: matchedRule) != nil {
+                if await ClerkFileManager.shared.moveFileAsync(url, toRuleDestination: matchedRule) != nil {
                     logActivity(
                         fileName: fileName,
                         action: .moved,

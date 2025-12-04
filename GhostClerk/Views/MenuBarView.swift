@@ -147,6 +147,8 @@ struct MenuBarView: View {
         VStack(spacing: 0) {
             Button {
                 openSettings()
+                // Bring the app and settings window to front
+                NSApplication.shared.activate(ignoringOtherApps: true)
             } label: {
                 Label("Settings...", systemImage: "gear")
             }

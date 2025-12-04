@@ -53,8 +53,17 @@ struct RulesSettingsView: View {
                         .textFieldStyle(.roundedBorder)
                     
                     HStack {
-                        TextField("Target folder path", text: $newTargetPath)
-                            .textFieldStyle(.roundedBorder)
+                        Text(newTargetPath.isEmpty ? "Select a folder..." : newTargetPath)
+                            .foregroundColor(newTargetPath.isEmpty ? .secondary : .primary)
+                            .frame(maxWidth: .infinity, alignment: .leading)
+                            .padding(.horizontal, 8)
+                            .padding(.vertical, 6)
+                            .background(Color(nsColor: .textBackgroundColor))
+                            .cornerRadius(6)
+                            .overlay(
+                                RoundedRectangle(cornerRadius: 6)
+                                    .stroke(Color(nsColor: .separatorColor), lineWidth: 1)
+                            )
                         
                         Button("Browse...") {
                             showingFolderPicker = true
@@ -113,6 +122,10 @@ struct RulesSettingsView: View {
         ) { result in
             if case .success(let urls) = result, let url = urls.first {
                 newTargetPath = url.path
+                // Save bookmark for persistent access
+                Task {
+                    try? await BookmarkManager.shared.saveBookmark(for: url)
+                }
             }
         }
     }
@@ -139,8 +152,18 @@ struct RuleRowView: View {
                         .textFieldStyle(.roundedBorder)
                     
                     HStack {
-                        TextField("Target folder", text: $editTargetPath)
-                            .textFieldStyle(.roundedBorder)
+                        Text(editTargetPath.isEmpty ? "Select a folder..." : editTargetPath)
+                            .foregroundColor(editTargetPath.isEmpty ? .secondary : .primary)
+                            .font(.caption)
+                            .frame(maxWidth: .infinity, alignment: .leading)
+                            .padding(.horizontal, 6)
+                            .padding(.vertical, 4)
+                            .background(Color(nsColor: .textBackgroundColor))
+                            .cornerRadius(4)
+                            .overlay(
+                                RoundedRectangle(cornerRadius: 4)
+                                    .stroke(Color(nsColor: .separatorColor), lineWidth: 1)
+                            )
                         
                         Button("Browse") {
                             showingFolderPicker = true
@@ -201,6 +224,10 @@ struct RuleRowView: View {
         ) { result in
             if case .success(let urls) = result, let url = urls.first {
                 editTargetPath = url.path
+                // Save bookmark for persistent access
+                Task {
+                    try? await BookmarkManager.shared.saveBookmark(for: url)
+                }
             }
         }
     }
