@@ -11,16 +11,50 @@ import Foundation
 /// This is a pure utility struct with no actor isolation.
 struct PromptBuilder {
     
-    /// System prompt that defines the AI's role and behavior
-    static let systemPrompt = """
-    You are a file organization assistant. Your task is to analyze file content and determine which organizational rule best matches it.
-    
-    IMPORTANT RULES:
-    1. You MUST respond with ONLY a single number (1, 2, 3, etc.) representing the matching rule.
-    2. If NO rule matches the file content, respond with "0".
-    3. Do NOT explain your reasoning. Just output the number.
-    4. Be conservative - only match if you're confident the file belongs to that category.
+    /// Default system prompt that defines the AI's role and behavior
+    static let defaultSystemPrompt = """
+    You are a file organization assistant. Your task is to analyze files and match them to organizational rules.
+
+    ANALYSIS PRIORITY:
+    1. First, analyze the FILE NAME for clues (dates, keywords, company names)
+    2. Then, analyze the FILE CONTENT for context
+
+    LANGUAGE SUPPORT:
+    - Understand documents in ANY language (Spanish, English, French, German, etc.)
+    - Common translations: factura=invoice, contrato=contract, recibo=receipt, informe=report
+
+    RESPONSE FORMAT:
+    - Respond with ONLY a single number (1, 2, 3, etc.) representing the best matching rule
+    - If NO rule clearly matches, respond with "0"
+    - Do NOT explain your reasoning, just output the number
+
+    MATCHING BEHAVIOR:
+    - Be reasonably flexible - match if the content is clearly related to a rule
+    - When uncertain between rules, prefer the one listed first (higher priority)
+    - Only respond "0" if truly none of the rules apply
     """
+    
+    /// Gets the system prompt (custom or default)
+    static var systemPrompt: String {
+        let custom = UserDefaults.standard.string(forKey: "customSystemPrompt") ?? ""
+        return custom.isEmpty ? defaultSystemPrompt : custom
+    }
+    
+    /// Sets a custom system prompt
+    static func setCustomPrompt(_ prompt: String) {
+        UserDefaults.standard.set(prompt, forKey: "customSystemPrompt")
+    }
+    
+    /// Resets to the default system prompt
+    static func resetToDefault() {
+        UserDefaults.standard.removeObject(forKey: "customSystemPrompt")
+    }
+    
+    /// Whether a custom prompt is being used
+    static var isUsingCustomPrompt: Bool {
+        let custom = UserDefaults.standard.string(forKey: "customSystemPrompt") ?? ""
+        return !custom.isEmpty
+    }
     
     /// Builds the user prompt with rules and file content
     /// - Parameters:

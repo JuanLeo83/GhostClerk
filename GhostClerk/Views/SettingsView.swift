@@ -275,6 +275,9 @@ struct GeneralSettingsView: View {
     @State private var modelCacheSize: Int64 = 0
     @State private var isDeleting = false
     @State private var showDeleteConfirmation = false
+    @State private var showPromptEditor = false
+    @State private var customPrompt: String = ""
+    @State private var isUsingCustomPrompt = false
     
     var body: some View {
         Form {
@@ -328,6 +331,42 @@ struct GeneralSettingsView: View {
                 }
             }
             
+            Section("Prompt Tuning") {
+                HStack {
+                    Text("System Prompt:")
+                    Spacer()
+                    if isUsingCustomPrompt {
+                        Text("Custom")
+                            .font(.caption)
+                            .foregroundColor(.orange)
+                            .padding(.horizontal, 8)
+                            .padding(.vertical, 2)
+                            .background(Color.orange.opacity(0.2))
+                            .cornerRadius(4)
+                    } else {
+                        Text("Default")
+                            .font(.caption)
+                            .foregroundColor(.secondary)
+                    }
+                }
+                
+                Button("Edit System Prompt...") {
+                    customPrompt = PromptBuilder.systemPrompt
+                    showPromptEditor = true
+                }
+                
+                if isUsingCustomPrompt {
+                    Button("Reset to Default") {
+                        PromptBuilder.resetToDefault()
+                        isUsingCustomPrompt = false
+                    }
+                }
+                
+                Text("The system prompt tells the AI how to classify files.")
+                    .font(.caption)
+                    .foregroundColor(.secondary)
+            }
+            
             Section("Watched Folder") {
                 HStack {
                     Text("~/Downloads")
@@ -343,6 +382,17 @@ struct GeneralSettingsView: View {
         .padding()
         .onAppear {
             refreshCacheSize()
+            isUsingCustomPrompt = PromptBuilder.isUsingCustomPrompt
+        }
+        .sheet(isPresented: $showPromptEditor) {
+            PromptEditorSheet(
+                prompt: $customPrompt,
+                isPresented: $showPromptEditor,
+                onSave: {
+                    PromptBuilder.setCustomPrompt(customPrompt)
+                    isUsingCustomPrompt = PromptBuilder.isUsingCustomPrompt
+                }
+            )
         }
         .confirmationDialog(
             "Delete Model Cache?",
@@ -406,6 +456,53 @@ struct GeneralSettingsView: View {
                 }
             }
         }
+    }
+}
+
+// MARK: - Prompt Editor Sheet
+
+struct PromptEditorSheet: View {
+    @Binding var prompt: String
+    @Binding var isPresented: Bool
+    var onSave: () -> Void
+    
+    var body: some View {
+        VStack(spacing: 16) {
+            HStack {
+                Text("Edit System Prompt")
+                    .font(.headline)
+                Spacer()
+                Button("Cancel") {
+                    isPresented = false
+                }
+            }
+            
+            Text("This prompt tells the AI how to analyze and classify files. Modify carefully.")
+                .font(.caption)
+                .foregroundColor(.secondary)
+                .frame(maxWidth: .infinity, alignment: .leading)
+            
+            TextEditor(text: $prompt)
+                .font(.system(.body, design: .monospaced))
+                .frame(minHeight: 200)
+                .border(Color(nsColor: .separatorColor), width: 1)
+            
+            HStack {
+                Button("Reset to Default") {
+                    prompt = PromptBuilder.defaultSystemPrompt
+                }
+                
+                Spacer()
+                
+                Button("Save") {
+                    onSave()
+                    isPresented = false
+                }
+                .buttonStyle(.borderedProminent)
+            }
+        }
+        .padding()
+        .frame(width: 500, height: 350)
     }
 }
 

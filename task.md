@@ -92,7 +92,7 @@ Tareas opcionales para pulir la experiencia.
 ### Reglas
 - [x] **Rule Reordering (Drag & Drop)**: Permitir reordenar reglas arrastrando para establecer prioridad. La regla más arriba = mayor prioridad.
 - [x] **Rule Priority Number**: Mostrar número de prioridad junto a cada regla (1, 2, 3...).
-- [ ] **Prompt Tuning**: UI para personalizar el prompt del sistema que se envía al LLM.
+- [x] **Prompt Tuning**: UI para personalizar el prompt del sistema que se envía al LLM.
 
 ### Analytics & UX
 - [x] **Statistics Dashboard**: Vista con estadísticas de archivos procesados, aciertos, tiempos de inferencia.
