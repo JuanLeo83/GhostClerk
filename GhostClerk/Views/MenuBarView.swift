@@ -15,6 +15,12 @@ struct MenuBarView: View {
     
     var body: some View {
         VStack(alignment: .leading, spacing: 0) {
+            // Alert Banner (if any)
+            if let alert = currentAlert {
+                alertBanner(alert)
+                Divider()
+            }
+            
             // Status Section
             statusSection
             
@@ -34,6 +40,91 @@ struct MenuBarView: View {
             footerSection
         }
         .frame(width: 320)
+    }
+    
+    // MARK: - Alert Type
+    
+    private enum AlertType {
+        case reviewTrayHasFiles(Int)
+        case noRulesConfigured
+        case monitoringPaused
+        
+        var icon: String {
+            switch self {
+            case .reviewTrayHasFiles: return "tray.full.fill"
+            case .noRulesConfigured: return "exclamationmark.triangle.fill"
+            case .monitoringPaused: return "pause.circle.fill"
+            }
+        }
+        
+        var color: Color {
+            switch self {
+            case .reviewTrayHasFiles: return .orange
+            case .noRulesConfigured: return .yellow
+            case .monitoringPaused: return .blue
+            }
+        }
+        
+        var title: String {
+            switch self {
+            case .reviewTrayHasFiles(let count):
+                return count == 1 ? "1 file needs review" : "\(count) files need review"
+            case .noRulesConfigured:
+                return "No rules configured"
+            case .monitoringPaused:
+                return "Monitoring is paused"
+            }
+        }
+        
+        var subtitle: String {
+            switch self {
+            case .reviewTrayHasFiles:
+                return "Click Review Tray to classify them"
+            case .noRulesConfigured:
+                return "Add rules in Settings to organize files"
+            case .monitoringPaused:
+                return "Click Start Monitoring to begin"
+            }
+        }
+    }
+    
+    /// Determines the current alert to show (priority order)
+    private var currentAlert: AlertType? {
+        if appState.reviewTrayCount > 0 {
+            return .reviewTrayHasFiles(appState.reviewTrayCount)
+        }
+        if appState.rules.isEmpty && appState.isMonitoring {
+            return .noRulesConfigured
+        }
+        if !appState.isMonitoring {
+            return .monitoringPaused
+        }
+        return nil
+    }
+    
+    // MARK: - Alert Banner
+    
+    private func alertBanner(_ alert: AlertType) -> some View {
+        HStack(spacing: 10) {
+            Image(systemName: alert.icon)
+                .foregroundColor(.white)
+                .font(.title2)
+            
+            VStack(alignment: .leading, spacing: 2) {
+                Text(alert.title)
+                    .font(.subheadline)
+                    .fontWeight(.semibold)
+                    .foregroundColor(.white)
+                Text(alert.subtitle)
+                    .font(.caption)
+                    .foregroundColor(.white.opacity(0.85))
+            }
+            
+            Spacer()
+        }
+        .padding(.horizontal, 12)
+        .padding(.vertical, 10)
+        .background(alert.color)
     }
     
     // MARK: - Status Section

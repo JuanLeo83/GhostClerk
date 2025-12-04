@@ -33,7 +33,8 @@ Integration of MLX and Business Logic.
     - Mock inference with keyword matching (ready for real MLX integration).
     - Structure prepared for Phi-3.5-mini model loading.
 - [ ] **MLX Package**: Add `mlx-swift-lm` dependency to enable real AI inference.
-- [ ] **Rules UI**: Implement `Views/Settings/RulesListView.swift` with `onMove` (Drag & Drop) support.
+- [x] **Rules UI**: Implement rule editing in `Views/SettingsView.swift` with add/edit/delete support.
+- [x] **Security-Scoped Bookmarks**: Implement `Services/FileSystem/BookmarkManager.swift` for persistent folder access outside sandbox.
 
 ## Story 2 (Cont.): Extraction & OCR (The Eyes)
 
@@ -64,7 +65,8 @@ Uncertainty management and User Interface.
     - Show status ("Monitoring Active" / "Monitoring Paused").
     - Button to open Settings.
     - Button to open Review Tray with count badge.
-- [ ] **Visual Alert**: Change the Menu Bar icon (e.g., add a red dot) if there are files in the Review Tray.
+- [x] **Visual Alert**: Badge counter on menu bar icon when Review Tray has files.
+- [x] **Alert Banners**: Contextual alerts in menu (paused, no rules, files need review).
 
 ## Story 5: Safety Net
 
